@@ -1,0 +1,22 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "pnpm install --frozen-lockfile && pnpm build"
+
+[build.nixpacks]
+aptPkgs = []
+
+[deploy]
+# Cron entry point — runs once per schedule trigger and exits.
+# Schedule (every 4h) is set in the Railway dashboard, NOT here.
+#
+# NODE_OPTIONS="--conditions react-server" is REQUIRED — without it,
+# `import "server-only"` in src/lib/holder-snapshots.ts throws at
+# module load:
+#   Error: This module cannot be imported from a Client Component module.
+# The condition flag tells Node's resolver to pick `server-only`'s
+# no-op shim instead of the throw-on-import client guard.
+#
+# `restartPolicyType = "NEVER"` so a successful exit doesn't get
+# auto-restarted by Railway as if the cron run had crashed.
+startCommand = "NODE_OPTIONS='--conditions react-server' pnpm exec tsx scripts/run-holder-snapshot.ts"
+restartPolicyType = "NEVER"

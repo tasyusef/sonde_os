@@ -1,0 +1,1 @@
+ALTER TABLE "amm_pools" ADD COLUMN "trading_fee" integer;

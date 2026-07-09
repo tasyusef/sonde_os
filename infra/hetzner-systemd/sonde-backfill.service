@@ -1,0 +1,21 @@
+[Unit]
+Description=Sonde History Backfill (one-shot)
+After=network.target sonde-ingester.service
+Wants=sonde-ingester.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/sonde_intel
+EnvironmentFile=/opt/sonde_intel/.env
+Environment="NODE_OPTIONS=--conditions react-server"
+ExecStart=/usr/bin/pnpm tsx scripts/backfill-history.ts
+Restart=on-failure
+RestartSec=30s
+RestartPreventExitStatus=0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sonde-backfill
+
+[Install]
+WantedBy=multi-user.target

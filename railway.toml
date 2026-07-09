@@ -1,0 +1,15 @@
+[build]
+builder = "NIXPACKS"
+# Pull cloudflared into the image so the start script can run it as a
+# sidecar tunnel to Hetzner-hosted Postgres. Pinned to a known-good
+# version; bump and redeploy if cloudflared changes break compat.
+buildCommand = "curl -fsSL -o ./cloudflared https://github.com/cloudflare/cloudflared/releases/download/2026.3.0/cloudflared-linux-amd64 && chmod +x ./cloudflared && pnpm install --frozen-lockfile && pnpm build"
+
+[build.nixpacks]
+aptPkgs = []
+
+[deploy]
+startCommand = "bash scripts/railway-start.sh"
+healthcheckPath = "/"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

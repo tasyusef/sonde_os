@@ -1,0 +1,25 @@
+[Unit]
+Description=Sonde deploy webhook listener (Forgejo HMAC -> deploy.sh)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/sonde_intel/infra/hetzner-deploy
+EnvironmentFile=/etc/sonde-deploy.env
+ExecStart=/usr/bin/node /opt/sonde_intel/infra/hetzner-deploy/webhook.mjs
+Restart=always
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sonde-deploy
+
+# The webhook process needs root to chain `systemctl restart` from
+# deploy.sh. If you'd rather drop privileges, create a sonde-deploy
+# user, give it ownership of /opt/sonde_intel, and add a sudoers
+# rule for the two systemctl restart commands. Phase 2 cleanup —
+# keep root for now since the only attack surface is the HMAC-gated
+# webhook itself.
+
+[Install]
+WantedBy=multi-user.target

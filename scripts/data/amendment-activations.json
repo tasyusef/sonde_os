@@ -1,0 +1,182 @@
+{
+  "NonFungibleTokensV1_1": {
+    "name": "NonFungibleTokensV1_1",
+    "id": "32A122F1352A4C7B3A6D790362CC34749C5E57FCE896377BFDC6CCD14F6CD627",
+    "activationLedger": 75443457,
+    "activationDate": "2022-10-31"
+  },
+  "NFTokenMintOffer": {
+    "name": "NFTokenMintOffer",
+    "id": "EE3CF852F0506782D05E65D49E5DCC3D16D50898CD1B646BAE274863401CC3CE",
+    "activationLedger": 94166785,
+    "activationDate": "2025-02-15"
+  },
+  "DynamicNFT": {
+    "name": "DynamicNFT",
+    "id": "C1CE18F2A268E6A849C27B3DE485006771B4C01B2FCEC4F18356FE92ECD6BB74",
+    "activationLedger": 96724737,
+    "activationDate": "2025-06-11"
+  },
+  "fixNonFungibleTokensV1_2": {
+    "name": "fixNonFungibleTokensV1_2",
+    "id": "73761231F7F3D94EC3D8C63D91BDD0D89045C6F71B917D1925C01253515A6669",
+    "activationLedger": 81986305,
+    "activationDate": "2023-08-21"
+  },
+  "fixEnforceNFTokenTrustline": {
+    "name": "fixEnforceNFTokenTrustline",
+    "id": "763C37B352BE8C7A04E810F8E462644C45AFEAD624BF3894A08E5C917CF9FF39",
+    "activationLedger": 93814529,
+    "activationDate": "2025-01-30"
+  },
+  "fixEnforceNFTokenTrustlineV2": {
+    "name": "fixEnforceNFTokenTrustlineV2",
+    "id": "B32752F7DCC41FB86534118FC4EEC8F56E7BD0A7DB60FD73F93F257233C08E3A",
+    "activationLedger": 98491905,
+    "activationDate": "2025-08-29"
+  },
+  "fixNFTokenRemint": {
+    "name": "fixNFTokenRemint",
+    "id": "AE35ABDEFBDE520372B31C957020B34A7A4A9DC3115A69803A44016477C84D6E",
+    "activationLedger": 84206081,
+    "activationDate": "2023-11-27"
+  },
+  "fixRemoveNFTokenAutoTrustLine": {
+    "name": "fixRemoveNFTokenAutoTrustLine",
+    "id": "DF8B4536989BDACE3F934F29423848B9F1D76D09BE6A1FCFE7E7F06AA26ABEAD",
+    "activationLedger": 75348737,
+    "activationDate": "2022-10-27"
+  },
+  "fixNFTokenPageLinks": {
+    "name": "fixNFTokenPageLinks",
+    "id": "C7981B764EC4439123A86CC7CCBA436E9B3FF73B3F10A0AE51882E404522FC41",
+    "activationLedger": 93814529,
+    "activationDate": "2025-01-30"
+  },
+  "fixNFTokenReserve": {
+    "name": "fixNFTokenReserve",
+    "id": "03BDC0099C4E14163ADA272C1B6F6FABB448CC3E51F522F978041E4B57D9158C",
+    "activationLedger": 87259137,
+    "activationDate": "2024-04-12"
+  },
+  "AMM": {
+    "name": "AMM",
+    "id": "8CC0774A3BF66D1D22E76BBDA8E8A232E6B6313834301B3B23E8601196AE6455",
+    "activationLedger": 86795265,
+    "activationDate": "2024-03-22"
+  },
+  "AMMClawback": {
+    "name": "AMMClawback",
+    "id": "726F944886BCDF7433203787E93DD9AA87FAB74DFE3AF4785BA03BEFC97ADA1F",
+    "activationLedger": 93814273,
+    "activationDate": "2025-01-30"
+  },
+  "fixAMMv1_1": {
+    "name": "fixAMMv1_1",
+    "id": "35291ADD2D79EB6991343BDA0912269C817D0F094B02226C1C14AD2858962ED4",
+    "activationLedger": 90967553,
+    "activationDate": "2024-09-24"
+  },
+  "fixAMMv1_2": {
+    "name": "fixAMMv1_2",
+    "id": "1E7ED950F2F13C4F8E2A54103B74D57D5D298FFDBD005936164EE9E6484C438C",
+    "activationLedger": 93815809,
+    "activationDate": "2025-01-30"
+  },
+  "fixAMMv1_3": {
+    "name": "fixAMMv1_3",
+    "id": "7CA70A7674A26FA517412858659EBC7EDEEF7D2D608824464E6FDEFD06854E14",
+    "activationLedger": 98491905,
+    "activationDate": "2025-08-29"
+  },
+  "fixAMMOverflowOffer": {
+    "name": "fixAMMOverflowOffer",
+    "id": "12523DF04B553A0B1AD74F42DDB741DE8DC06A03FC089A0EF197E2A87F1D8107",
+    "activationLedger": 87232257,
+    "activationDate": "2024-04-11"
+  },
+  "fixAMMClawbackRounding": {
+    "name": "fixAMMClawbackRounding",
+    "id": "5E9586DB3D765B4C5794658FB6BB385071E9838DF4016027E6E26820C8526724",
+    "activationLedger": 101852417,
+    "activationDate": "2026-01-27"
+  },
+  "fixFrozenLPTokenTransfer": {
+    "name": "fixFrozenLPTokenTransfer",
+    "id": "83FD6594FF83C1D105BD2B41D7E242D86ECB4A8220BD9AF4DA35CB0F69E39B2A",
+    "activationLedger": 96126977,
+    "activationDate": "2025-05-15"
+  },
+  "Clawback": {
+    "name": "Clawback",
+    "id": "56B241D7A43D40354D02A9DC4C8DF5C7A1F930D92A9035C4E12291B3CA3E1C2B",
+    "activationLedger": 85829633,
+    "activationDate": "2024-02-08"
+  },
+  "MPTokensV1": {
+    "name": "MPTokensV1",
+    "id": "950AE2EA4654E47F04AA8739C0B214E242097E802FD372D24047A89AB1F5EC38",
+    "activationLedger": 99226369,
+    "activationDate": "2025-10-01"
+  },
+  "fixMPTDeliveredAmount": {
+    "name": "fixMPTDeliveredAmount",
+    "id": "AB8D932A5F338903FE5BCBD80B611FFED70839ABA3170E9CE01D947C0EDEDCF2",
+    "activationLedger": 101852417,
+    "activationDate": "2026-01-27"
+  },
+  "DeepFreeze": {
+    "name": "DeepFreeze",
+    "id": "DAF3A6EB04FA5DC51E8E4F23E9B7022B693EFA636F23F22664746C77B5786B23",
+    "activationLedger": 95893505,
+    "activationDate": "2025-05-04"
+  },
+  "DID": {
+    "name": "DID",
+    "id": "DB432C3A09D9D5DFC7859F39AE5FF767ABC59AED0A9FB441E83B814D8946C109",
+    "activationLedger": 91778561,
+    "activationDate": "2024-10-30"
+  },
+  "fixEmptyDID": {
+    "name": "fixEmptyDID",
+    "id": "755C971C29971C9F20C6F080F2ED96F87884E40AD19554A5EBECDCEC8A1F77FE",
+    "activationLedger": 91038721,
+    "activationDate": "2024-09-27"
+  },
+  "PriceOracle": {
+    "name": "PriceOracle",
+    "id": "96FD2F293A519AE1DB6F8BED23E4AD9119342DA7CB6BAFD00953D16C54205D8B",
+    "activationLedger": 91831297,
+    "activationDate": "2024-11-02"
+  },
+  "Credentials": {
+    "name": "Credentials",
+    "id": "1CB67D082CF7D9102412D34258CEDB400E659352D3B207348889297A6D90F5EF",
+    "activationLedger": 98615297,
+    "activationDate": "2025-09-04"
+  },
+  "PermissionedDomains": {
+    "name": "PermissionedDomains",
+    "id": "A730EB18A9D4BB52502C898589558B4CCEB4BE10044500EE5581137A2E80E849",
+    "activationLedger": 102017793,
+    "activationDate": "2026-02-04"
+  },
+  "PermissionedDEX": {
+    "name": "PermissionedDEX",
+    "id": "677E401A423E3708363A36BA8B3A7D019D21AC5ABD00387BDBEA6BDE4C91247E",
+    "activationLedger": 102328065,
+    "activationDate": "2026-02-18"
+  },
+  "TokenEscrow": {
+    "name": "TokenEscrow",
+    "id": "138B968F25822EFBF54C00F97031221C47B1EAB8321D93C7C2AEAF85F04EC5DF",
+    "activationLedger": 102204929,
+    "activationDate": "2026-02-12"
+  },
+  "fixTokenEscrowV1": {
+    "name": "fixTokenEscrowV1",
+    "id": "32B8614321F7E070419115ABEAB1742EA20F3E3AF34432B5E2F474F8083260DC",
+    "activationLedger": 101852417,
+    "activationDate": "2026-01-27"
+  }
+}

@@ -1,0 +1,406 @@
+@import "tailwindcss";
+
+/* Theme-switched tokens use @theme (var-based) so html.light overrides work.
+   Static tokens (tx types, chart palette, fonts) use @theme inline for performance. */
+
+@theme inline {
+  /* ——— Transaction Types ——— */
+  --color-tx-payment: #6CB4EE;
+  --color-tx-offer: #E8B44C;
+  --color-tx-nft: #A78BFA;
+  --color-tx-trust: #4ADE80;
+  --color-tx-amm: #F472B6;
+  --color-tx-escrow: #FB923C;
+  --color-tx-account: #94A3B8;
+  --color-tx-check: #F87171;
+  --color-tx-other: #6B7280;
+
+  /* ——— Extended Chart Palette ——— */
+  --color-chart-blue: #60A5FA;
+  --color-chart-emerald: #34D399;
+  --color-chart-amber: #FBBF24;
+  --color-chart-teal: #2DD4BF;
+  --color-chart-indigo: #818CF8;
+  --color-chart-rose: #FB7185;
+  --color-chart-lime: #A3E635;
+  --color-chart-cyan: #22D3EE;
+  --color-chart-fuchsia: #D946EF;
+  --color-chart-sky: #38BDF8;
+  --color-chart-peach: #FDBA74;
+
+  /* ——— Font Families ——— */
+  --font-display: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* ——— Animations ——— */
+  /* Bouncing-dots loading indicator. Three dots staggered via
+     animation-delay (0ms / 200ms / 400ms in the component) produce a
+     wave. Used for prominent in-progress states (transactions tab,
+     paginators) where the small Spinner feels too quiet. */
+  --animate-loading-dot: loading-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes loading-dot {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.5);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@theme {
+  /* ——— Slate Scale ——— */
+  --color-black: #0B0D10;
+  --color-surface: #12151A;
+  --color-elevated: #1C1F26;
+  --color-border: #282C35;
+  --color-muted: #7B8291;
+  --color-secondary: #9CA3AF;
+  --color-primary: #E5E7EB;
+  --color-white: #F9FAFB;
+
+  /* ——— Brand (Salmon) ——— */
+  --color-brand: #E8856C;
+  --color-brand-light: #F2B8A8;
+  --color-brand-deep: #9E5442;
+  --color-brand-on-light: #B5593A;
+
+  /* ——— Semantic ——— */
+  --color-success: #5BAE7C;
+  --color-error: #EF6461;
+  --color-warning: #F4BE50;
+
+  /* ——— Interactive ——— */
+  --color-row-hover: #FFFFFF0F;
+
+  /* ——— Shadows ——— */
+  --shadow-card: 0 1px 6px 0 rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.15);
+  --shadow-card-hover: 0 6px 16px 0 rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.2);
+
+  /* ——— Type Scale ——— */
+  --text-micro: 10px;
+  --text-label: 12px;
+  --text-tag: 12px;
+  --text-cell: 12px;
+  --text-ui: 14px;
+  --text-body: 14px;
+  --text-lg: 15px;
+  --text-value: 17px;
+  --text-heading: 21px;
+  --text-title: 25px;
+  --text-display: 36px;
+  --text-display-lg: 56px;
+
+  /* ——— Tracking ——— */
+  --tracking-header: 1.5px;
+  --tracking-pill: 1px;
+  --tracking-nav: 0.3px;
+  --tracking-display: -1px;
+
+  /* ——— Leading ——— */
+  --leading-display: 1.05;
+
+  /* ——— Row Spacing ——— */
+  --spacing-row: 12px;
+  --spacing-row-compact: 6px;
+
+  /* ——— Card Header Spacing ——— */
+  --spacing-card-header: 10px;
+  --spacing-card-px: 16px;
+
+  /* ——— Border Radius ——— */
+  --radius-tag: 3px;
+  --radius-swatch: 2px;
+
+  /* ——— Container ——— */
+  --max-width-container: 1800px;
+
+  /* ——— Layout heights ——— */
+  /* Mobile topbar — sticky elements that pin under it (account
+     mini-header, banners) reference this so the value isn't sprayed
+     as raw top-[60px] hardcodes. Desktop has no top topbar (sidebar
+     is left-anchored), so the desktop var stays 0. */
+  --topbar-h-mobile: 60px;
+  --topbar-h-desktop: 0px;
+
+  /* ——— Interactive control heights ———
+     Single floor for Button/Toggle/Select/Input wrappers so they
+     visually align in shared rows. Mobile target (36px) matches the
+     natural input height after the iOS-anti-zoom 16px-font rule.
+     Desktop target (24px) matches Toggle's tight density.
+     Use via `min-h-[var(--ctrl-h-mobile)] sm:min-h-[var(--ctrl-h-desktop)]`. */
+  --ctrl-h-mobile: 36px;
+  --ctrl-h-desktop: 24px;
+
+  /* ——— Compact-grid spacing ———
+     For contribution-graph-style heatmaps where `gap-1` (4px) is too
+     loose. Used by LedgerPerformance heatmap. */
+  --grid-gap-tight: 3px;
+
+  /* ——— Treemap label scale ———
+     Runtime-clamped font sizes in TreemapView. Values stay tokenized
+     even though the inline-style remains (clamp logic is JS-side). */
+  --treemap-font-lg: 13px;
+  --treemap-font-sm: 11px;
+
+  /* ——— Floating-dialog mobile inset ———
+     FAB-anchored dialogs that need to clear iOS Safari's bottom
+     chrome (~49px). Use as `bottom-[var(--floating-bottom-mobile)]`. */
+  --floating-bottom-mobile: calc(5rem + env(safe-area-inset-bottom));
+
+  /* ——— Mobile FAB row ———
+     The global Search FAB is always bottom-right on sub-md
+     viewports. Page-specific FABs (Account Intel / Collection
+     Insights / Portfolio Tools) sit on the same horizontal row to
+     the LEFT of the search FAB, with a 12px gap between them, so
+     they never cover the search affordance.
+     Use as:
+       Search FAB:  `bottom-[var(--fab-search-bottom)] right-[var(--fab-search-right)]`
+       Page FAB:    `bottom-[var(--fab-page-bottom)] right-[var(--fab-page-right)]`
+     `--fab-search-bottom` bakes in the iOS safe-area inset.   */
+  --fab-search-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  --fab-search-right: 1rem;
+  --fab-search-size: 3rem;
+  --fab-stack-gap: 0.75rem;
+  --fab-page-bottom: var(--fab-search-bottom);
+  --fab-page-right: calc(
+    var(--fab-search-right) + var(--fab-search-size) + var(--fab-stack-gap)
+  );
+}
+
+body {
+  background-color: var(--color-black);
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: oklch(from var(--color-brand) l c h / 0.2);
+  color: var(--color-white);
+}
+
+/* ——— Light Mode ———
+   Two layers: (1) CSS variable overrides for SVG/canvas/JS using var() directly,
+   (2) class-level overrides as safety net for Tailwind utility specificity. */
+html.light {
+  --color-black: #F8FAFB;
+  --color-surface: #FFFFFF;
+  --color-elevated: #E0E4E8;
+  --color-border: #E0E4E8;
+  /* --color-muted was #9CA3AF — failed WCAG AA on bg-elevated
+     (#E0E4E8) at ~2.7:1 (required 4.5:1). Used 27+ times across
+     labels, table headers, "ago" timestamps, stat sub-labels.
+     #5F6571 recovers ~5:1 on white and ~4.0:1 on bg-elevated. */
+  --color-muted: #5F6571;
+  --color-secondary: #4B5260;
+  --color-primary: #0B0D10;
+  --color-brand: #B5593A;
+  --color-brand-light: #9E5442;
+  --color-success: #3A8F5C;
+  --color-error: #C44442;
+  --color-warning: #A08520;
+  --color-row-hover: rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 6px 0 rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 6px 16px 0 rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+html.light body {
+  background-color: #F8FAFB;
+  color: #0B0D10;
+}
+
+html.light .bg-surface { background-color: #FFFFFF; }
+html.light .bg-black { background-color: #F8FAFB; }
+html.light .bg-elevated { background-color: #F0F2F4; }
+html.light .border-elevated { border-color: #E0E4E8; }
+html.light .border-surface { border-color: #F0F2F4; }
+html.light .border-border { border-color: #E0E4E8; }
+html.light .text-primary { color: #0B0D10; }
+html.light .text-secondary { color: #6B7280; }
+html.light .text-muted { color: #9CA3AF; }
+html.light .text-brand { color: #B5593A; }
+html.light .hover\:text-brand:hover { color: #B5593A; }
+html.light .hover\:text-brand-light:hover { color: #9E5442; }
+html.light .text-success { color: #3A8F5C; }
+html.light .text-error { color: #C44442; }
+html.light .text-warning { color: #A08520; }
+html.light .bg-brand { background-color: #B5593A; }
+html.light .hover\:bg-elevated:hover { background-color: #F0F2F4; }
+html.light .hover\:text-secondary:hover { color: #6B7280; }
+html.light .hover\:bg-surface\/50:hover { background-color: rgba(255, 255, 255, 0.5); }
+html.light .hover\:bg-row-hover:hover { background-color: rgba(0, 0, 0, 0.05); }
+html.light .divide-white\/10 > :not(:last-child) { border-color: rgba(0, 0, 0, 0.08); }
+html.light .shadow-card { box-shadow: 0 1px 6px 0 rgba(0, 0, 0, 0.07); }
+html.light .hover\:shadow-card-hover:hover { box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.10); }
+
+html.light ::selection {
+  background-color: rgba(181, 89, 58, 0.2);
+  color: #0B0D10;
+}
+
+/* ——— Landing Page ——— */
+.landing-gradient {
+  background: radial-gradient(
+    ellipse 80% 50% at 50% 40%,
+    oklch(from var(--color-brand) l c h / 0.06) 0%,
+    var(--color-black) 100%
+  );
+}
+
+.landing-grid {
+  background-image:
+    linear-gradient(var(--color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.3;
+}
+
+html.light .landing-gradient {
+  background: radial-gradient(
+    ellipse 80% 50% at 50% 40%,
+    oklch(from var(--color-brand) l c h / 0.08) 0%,
+    var(--color-black) 100%
+  );
+}
+
+html.light .landing-grid {
+  background-image:
+    linear-gradient(var(--color-muted) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-muted) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.2;
+}
+
+.dashboard-gradient {
+  background: radial-gradient(
+    ellipse 80% 50% at calc(50% + 36px) 40%,
+    oklch(from var(--color-brand) l c h / 0.06) 0%,
+    var(--color-black) 100%
+  );
+}
+
+html.light .dashboard-gradient {
+  background: radial-gradient(
+    ellipse 80% 50% at calc(50% + 36px) 40%,
+    oklch(from var(--color-brand) l c h / 0.08) 0%,
+    var(--color-black) 100%
+  );
+}
+
+/* ——— Custom Scrollbars ——— */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--color-muted) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ——— Brand Scrollbar (horizontal ledger feed) ——— */
+.scrollbar-brand {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 133, 108, 0.5) var(--color-elevated);
+}
+
+.scrollbar-brand:hover {
+  scrollbar-color: var(--color-brand) var(--color-elevated);
+}
+
+.scrollbar-brand::-webkit-scrollbar {
+  height: 6px;
+  display: block;
+}
+
+.scrollbar-brand::-webkit-scrollbar-thumb:vertical,
+.scrollbar-brand::-webkit-scrollbar-thumb:horizontal {
+  min-width: 40px;
+}
+
+.scrollbar-brand::-webkit-scrollbar-track {
+  background: var(--color-elevated);
+  border-radius: 3px;
+}
+
+.scrollbar-brand::-webkit-scrollbar-thumb {
+  background: rgba(232, 133, 108, 0.5);
+  border-radius: 3px;
+}
+
+.scrollbar-brand::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand);
+}
+
+html.light .scrollbar-brand {
+  scrollbar-color: rgba(181, 89, 58, 0.4) var(--color-border);
+}
+
+html.light .scrollbar-brand:hover {
+  scrollbar-color: var(--color-brand-on-light) var(--color-border);
+}
+
+html.light .scrollbar-brand::-webkit-scrollbar-track {
+  background: var(--color-border);
+}
+
+html.light .scrollbar-brand::-webkit-scrollbar-thumb {
+  background: rgba(181, 89, 58, 0.4);
+}
+
+html.light .scrollbar-brand::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-on-light);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   iOS auto-zoom prevention — Mobile Safari zooms in whenever a focused
+   input has font-size < 16px. Most of our inputs use --text-ui (14px)
+   or --text-cell (12px), which would trigger that zoom and force the
+   user to manually pinch-zoom out. Applying a 16px floor on touch
+   widths keeps the same visual hierarchy on desktop while making
+   inputs feel native on phones.
+
+   `!important` is required because Tailwind utility classes
+   (`.text-ui`, `.text-cell`) outrank element selectors. We accept
+   the override since this is a hard accessibility/UX rule, not a
+   visual choice — and it only fires under 768px.
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+}

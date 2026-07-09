@@ -1,0 +1,23 @@
+-- Seed known XRPL NFT marketplace broker addresses.
+-- These addresses are used by the ingestion pipeline to attribute
+-- NFT trades to specific marketplaces.
+--
+-- To discover broker addresses from live data, query:
+--   SELECT DISTINCT broker FROM nft_trades WHERE broker IS NOT NULL;
+--
+-- Run:
+--   psql $DATABASE_URL -f src/db/seed-marketplaces.sql
+
+-- Placeholder — update with real broker addresses discovered from live trades.
+-- The ingestion pipeline automatically loads this registry on start and
+-- every 6 hours via refreshMarketplaceMap().
+
+-- INSERT INTO marketplace_registry (address, name, domain)
+-- VALUES
+--   ('rRealBrokerAddress1...', 'xrp.cafe', 'xrp.cafe'),
+--   ('rRealBrokerAddress2...', 'onXRP', 'nft.onxrp.com'),
+--   ('rRealBrokerAddress3...', 'Sologenic', 'sologenic.org'),
+--   ('rRealBrokerAddress4...', 'XPMarket', 'xpmarket.com')
+-- ON CONFLICT (address) DO UPDATE
+--   SET name = EXCLUDED.name,
+--       domain = EXCLUDED.domain;

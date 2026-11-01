@@ -63,6 +63,10 @@ The relay only accepts pages on `localhost:3000` and `:3001` (`ALLOWED_ORIGINS` 
 The site deploys through Cloudflare Workers Builds on every push to `master`. The relay deploys by hand with `pnpm relay:deploy`.
 
 ## License
-MIT. The first version (Next.js, ClickHouse and Postgres, shut down July 2026) is the previous commit in this repo's history.
+[GNU AGPL-3.0](LICENSE). If you run a modified Sonde for other people, the relay included, you have to offer them its source.
+
+The fonts in `src/fonts/` aren't covered by it: PARC Pixel is Timothy Ali's own typeface, and Departure Mono is under the SIL Open Font License (`src/fonts/DepartureMono-OFL.txt`).
+
+Earlier commits are MIT: Sonde 1 (Next.js, ClickHouse and Postgres, shut down July 2026) and the first Sonde 2 commit.
 
 Built by [Timothy Ali](https://timothyali.com).

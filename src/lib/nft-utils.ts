@@ -1,6 +1,6 @@
-// Server-only: NFT parsing utilities that depend on xrpl package
-import "server-only";
-import { encodeAccountID } from "xrpl";
+import { encodeAccountID } from "ripple-address-codec";
+import type { NFTInfo } from "@/types/nft";
+import { hexToBytes } from "./hex";
 
 interface ParsedNFTokenID {
   flags: number;
@@ -15,7 +15,7 @@ export function parseNFTokenID(nftId: string): ParsedNFTokenID | null {
   try {
     const flags = parseInt(nftId.slice(0, 4), 16);
     const transferFee = parseInt(nftId.slice(4, 8), 16);
-    const issuerBytes = Buffer.from(nftId.slice(8, 48), "hex");
+    const issuerBytes = hexToBytes(nftId.slice(8, 48));
     const issuer = encodeAccountID(issuerBytes);
     const scrambledTaxon = parseInt(nftId.slice(48, 56), 16) >>> 0;
     const serial = parseInt(nftId.slice(56, 64), 16) >>> 0;
@@ -35,4 +35,12 @@ export function parseNFTokenID(nftId: string): ParsedNFTokenID | null {
   } catch {
     return null;
   }
+}
+
+/** What the NFTokenID alone says about an NFT, for when `nft_info`
+ *  (Clio) can't be reached. Owner, URI and burn state are unknown. */
+export function nftInfoFromId(nftId: string): NFTInfo | null {
+  const parsed = parseNFTokenID(nftId);
+  if (!parsed) return null;
+  return { nft_id: nftId.toUpperCase(), owner: "", is_burned: false, uri: null, ...parsed };
 }

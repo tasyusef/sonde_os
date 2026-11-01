@@ -1,29 +1,36 @@
-import { getNFTHistory } from "@/lib/nft-history";
 import NFTHistoryTable from "@/components/nft/NFTHistoryTable";
+import ListNotice from "@/components/shared/ListNotice";
+import Skeleton from "@/components/shared/Skeleton";
+import { HISTORY_CAP, useNftHistory } from "@/hooks/useNft";
 
-export default async function NFTHistoryLoader({
-  nftId,
-}: {
-  nftId: string;
-}) {
-  let transactions;
-  try {
-    transactions = await getNFTHistory(nftId);
-  } catch {
-    // nft_history is Clio-only — gracefully degrade
+export default function NFTHistoryLoader({ nftId, className }: { nftId: string; className?: string }) {
+  const { rows, more, failed, retry } = useNftHistory(nftId);
+
+  if (failed) {
     return (
-      <div className="rounded-2xl bg-surface shadow-card p-6 text-center">
-        <p className="font-mono text-body text-muted">
-          Transaction history unavailable
-        </p>
-        <p className="mt-1 font-mono text-label text-muted">
-          Requires a Clio server connection
-        </p>
+      <div className={className}>
+        <ListNotice
+          tone="error"
+          message="Couldn't load transaction history. The Clio nodes didn't answer."
+          action={{ label: "Try again", onClick: retry }}
+        />
       </div>
     );
   }
-
-  return <NFTHistoryTable transactions={transactions} />;
+  if (!rows) {
+    return (
+      <div className={className} role="status" aria-label="Loading transaction history">
+        <Skeleton className="h-72" />
+      </div>
+    );
+  }
+  return (
+    <NFTHistoryTable
+      transactions={rows}
+      note={more ? `Only the latest ${HISTORY_CAP} are loaded.` : null}
+      className={className}
+    />
+  );
 }
 
 export { NFTHistoryLoader };

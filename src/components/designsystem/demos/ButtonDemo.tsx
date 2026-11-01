@@ -1,37 +1,8 @@
-"use client";
-
 import { useState } from "react";
 import Button, { type ButtonVariant, type ButtonSize } from "@/components/shared/Button";
+import PixelIcon from "@/components/shared/PixelIcon";
 import DemoCard from "../shared/DemoCard";
 import { SelectControl, ToggleControl, TextControl } from "../shared/PropControl";
-
-function ArrowIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M5 12h14M12 5l7 7-7 7"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 5v14M5 12h14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 export default function ButtonDemo() {
   const [variant, setVariant] = useState<ButtonVariant>("primary");
@@ -47,7 +18,7 @@ export default function ButtonDemo() {
       <DemoCard
         name="Button"
         importPath="@/components/shared/Button"
-        description="Universal button primitive. Every button on the site routes through this. Use variants for intent (primary/secondary/ghost/outline/danger), sizes for scale, and loading/iconOnly for state. Wrap in a Next.js <Link> or use the buttonClasses() helper for navigation buttons."
+        description="Universal button primitive. Every button on the site routes through this. Use variants for intent (primary/secondary/ghost/outline/danger), sizes for scale, and loading/iconOnly for state. Wrap in a React Router <Link> or use the buttonClasses() helper for navigation buttons."
         preview={
           <div className="flex items-center justify-center p-6">
             <Button
@@ -57,8 +28,8 @@ export default function ButtonDemo() {
               loading={loading}
               disabled={disabled}
               fullWidth={fullWidth}
-              leftIcon={iconOnly ? <PlusIcon /> : undefined}
-              rightIcon={!iconOnly && variant === "primary" ? <ArrowIcon /> : undefined}
+              leftIcon={iconOnly ? <PixelIcon name="plus" /> : undefined}
+              rightIcon={!iconOnly && variant === "primary" ? <PixelIcon name="arrow" /> : undefined}
               aria-label={iconOnly ? label : undefined}
             >
               {!iconOnly && label}
@@ -100,13 +71,13 @@ export default function ButtonDemo() {
   variant="${variant}"
   size="${size}"${loading ? "\n  loading" : ""}${disabled ? "\n  disabled" : ""}${fullWidth ? "\n  fullWidth" : ""}${iconOnly ? `\n  iconOnly\n  aria-label="${label}"` : ""}
 >
-  ${iconOnly ? "<PlusIcon />" : label}
+  ${iconOnly ? '<PixelIcon name="plus" />' : label}
 </Button>`}
       />
 
       {/* Variant overview — static showcase */}
-      <div className="rounded-2xl border border-elevated bg-surface p-5 shadow-card">
-        <h4 className="mb-4 font-display text-label font-medium uppercase tracking-header text-muted">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h4 className="mb-4 font-display text-caps uppercase tracking-header text-muted">
           All variants
         </h4>
         <div className="flex flex-wrap items-center gap-3">
@@ -116,7 +87,7 @@ export default function ButtonDemo() {
           <Button variant="outline">Outline</Button>
           <Button variant="danger">Danger</Button>
         </div>
-        <h4 className="mb-4 mt-6 font-display text-label font-medium uppercase tracking-header text-muted">
+        <h4 className="mb-4 mt-6 font-display text-caps uppercase tracking-header text-muted">
           All sizes
         </h4>
         <div className="flex flex-wrap items-center gap-3">
@@ -124,16 +95,16 @@ export default function ButtonDemo() {
           <Button size="md">Medium</Button>
           <Button size="lg">Large</Button>
         </div>
-        <h4 className="mb-4 mt-6 font-display text-label font-medium uppercase tracking-header text-muted">
+        <h4 className="mb-4 mt-6 font-display text-caps uppercase tracking-header text-muted">
           States
         </h4>
         <div className="flex flex-wrap items-center gap-3">
           <Button>Default</Button>
           <Button loading>Loading</Button>
           <Button disabled>Disabled</Button>
-          <Button leftIcon={<PlusIcon />}>With icon</Button>
+          <Button leftIcon={<PixelIcon name="plus" />}>With icon</Button>
           <Button iconOnly aria-label="Add">
-            <PlusIcon />
+            <PixelIcon name="plus" />
           </Button>
         </div>
       </div>

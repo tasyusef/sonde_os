@@ -1,4 +1,5 @@
 import { dropsToXrp, decodeCurrency } from "@/lib/xrpl-helpers";
+import { isLpCurrency } from "./token-id";
 import type { TrustLine } from "@/components/account/TrustLineList";
 import type { AMMInfoResult, AMMPosition } from "@/types/amm";
 
@@ -33,13 +34,7 @@ export function parseAMMAsset(
   };
 }
 
-/**
- * LP token currencies are 40-char hex strings starting with "03".
- */
-function isLPToken(trustLine: TrustLine): boolean {
-  const c = trustLine.Balance.currency;
-  return c.length === 40 && c.startsWith("03");
-}
+const isLPToken = (trustLine: TrustLine) => isLpCurrency(trustLine.Balance.currency);
 
 /**
  * Separates trust lines into regular tokens and LP tokens with positive balance.
@@ -115,4 +110,26 @@ export function processAMMPositions(
   }
 
   return positions;
+}
+
+/** The account's share of each pool asset (pool totals × LP share). */
+export function positionAmounts(pos: AMMPosition): {
+  asset1: number;
+  asset2: number;
+} {
+  const share = pos.sharePercent / 100;
+  return { asset1: pos.asset1Value * share, asset2: pos.asset2Value * share };
+}
+
+/**
+ * An LP position's value in XRP, or null when neither side is XRP.
+ * XRPL AMM pools are 50/50 weighted, so at the pool's own price both
+ * sides are worth the same and the position is worth twice its XRP side.
+ * Needs no token price feed.
+ */
+export function lpPositionXrpValue(pos: AMMPosition): number | null {
+  const { asset1, asset2 } = positionAmounts(pos);
+  if (pos.asset1IsXrp) return asset1 * 2;
+  if (pos.asset2IsXrp) return asset2 * 2;
+  return null;
 }

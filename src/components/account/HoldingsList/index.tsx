@@ -1,14 +1,15 @@
-"use client";
-
 import { useMemo } from "react";
+import { Link } from "react-router";
 import { dropsToXrp, decodeCurrency } from "@/lib/xrpl-helpers";
 import { formatVolume } from "@/lib/format";
 import AddressLink from "@/components/shared/AddressLink";
-import TokenIcon from "@/components/tokens/TokenIcon";
+import TokenIcon from "@/components/shared/TokenIcon";
 import type { TrustLine } from "@/components/account/TrustLineList";
-import type { TokenListItem } from "@/lib/token-types";
+import { lpPositionXrpValue, positionAmounts } from "@/lib/amm-helpers";
 import type { AMMPosition } from "@/types/amm";
 import { LoadMoreFooter, usePagination } from "@/components/shared/Paginated";
+import { cell, thClass } from "@/lib/table";
+import { type TokenRef, tokenPath } from "@/lib/token-id";
 
 interface HoldingRow {
   key: string;
@@ -17,6 +18,8 @@ interface HoldingRow {
   icon: string | null;
   issuer: string | null;
   issuerName: string | null;
+  /** The token page the name opens; issued tokens only. */
+  token?: TokenRef;
   balance: number;
   priceUsd: number | null;
   valueUsd: number | null;
@@ -27,16 +30,12 @@ interface HoldingRow {
   lpComposition?: { asset1Line: string; asset2Line: string };
 }
 
-const thClass =
-  "px-4 py-row font-display text-label font-medium uppercase tracking-header text-muted";
-
 export default function HoldingsList({
   address,
   xrpBalance,
   xrpPrice,
   trustLines,
   ammPositions,
-  tokenPriceMap,
 }: {
   address: string;
   xrpBalance: string;
@@ -48,7 +47,6 @@ export default function HoldingsList({
    *  tab, which split holdings across two views and hid LP value from
    *  the primary balance summary. */
   ammPositions?: AMMPosition[];
-  tokenPriceMap: Record<string, TokenListItem>;
 }) {
   // Memoized — whale accounts have 100+ trustlines; the build+sort is
   // ~O(n log n) per render and the parent re-renders on every SWR
@@ -77,29 +75,26 @@ export default function HoldingsList({
       const displayBalance = isHigh ? -balance : balance;
       if (displayBalance <= 0) continue;
 
+      // No token price feed: issued tokens show balance only.
       const decoded = decodeCurrency(currency);
-      const tokenInfo = tokenPriceMap[`${currency}:${issuer}`];
-      const tokenPriceXrp = tokenInfo?.metrics.price ?? null;
-      const priceUsd =
-        tokenPriceXrp != null && xrpPrice > 0 ? tokenPriceXrp * xrpPrice : null;
-      const valueUsd = priceUsd != null ? displayBalance * priceUsd : null;
-
       tokenRows.push({
         key: `${currency}:${issuer}`,
-        name: tokenInfo?.meta.name ?? decoded,
+        name: decoded,
         currency: decoded,
-        icon: tokenInfo?.meta.icon ?? null,
+        icon: null,
         issuer,
-        issuerName: tokenInfo?.meta.issuerName ?? null,
+        issuerName: null,
+        token: { kind: "iou", currency, issuer },
         balance: displayBalance,
-        priceUsd,
-        valueUsd,
+        priceUsd: null,
+        valueUsd: null,
       });
     }
 
-    // AMM LP positions — each one becomes a row. Underlying-asset USD
-    // value is computed from the same tokenPriceMap as regular tokens
-    // (XRP-priced; multiplied through xrpPrice for the USD column).
+    // AMM LP positions — each one becomes a row showing the account's
+    // share of both pool assets. XRP-paired pools get a USD value from
+    // their XRP side (see `lpPositionXrpValue`); token/token pools
+    // have none.
     if (ammPositions && ammPositions.length > 0) {
       // Compact notation for LP-component amounts. Memecoins routinely
       // hit billions/trillions per LP share; the locale-formatted full
@@ -117,21 +112,12 @@ export default function HoldingsList({
         if (isXrp) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
         return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
       };
-      const usdFor = (currency: string, issuer: string, amount: number, isXrp: boolean): number | null => {
-        if (isXrp) return xrpPrice > 0 ? amount * xrpPrice : null;
-        const info = tokenPriceMap[`${currency}:${issuer}`];
-        const priceXrp = info?.metrics.price ?? null;
-        if (priceXrp == null || xrpPrice <= 0) return null;
-        return amount * priceXrp * xrpPrice;
-      };
       for (const pos of ammPositions) {
         if (pos.lpTokenBalance <= 0) continue;
-        const a1Usd = usdFor(pos.asset1Currency, pos.asset1Issuer, pos.asset1Value, pos.asset1IsXrp);
-        const a2Usd = usdFor(pos.asset2Currency, pos.asset2Issuer, pos.asset2Value, pos.asset2IsXrp);
+        const amounts = positionAmounts(pos);
+        const valueXrp = lpPositionXrpValue(pos);
         const valueUsd =
-          a1Usd != null && a2Usd != null
-            ? a1Usd + a2Usd
-            : a1Usd ?? a2Usd ?? null;
+          valueXrp != null && xrpPrice > 0 ? valueXrp * xrpPrice : null;
         tokenRows.push({
           key: `lp:${pos.ammAccount}`,
           name: `${pos.asset1Label} / ${pos.asset2Label}`,
@@ -147,8 +133,8 @@ export default function HoldingsList({
           priceUsd: null,
           valueUsd,
           lpComposition: {
-            asset1Line: `${formatAssetAmount(pos.asset1Value, pos.asset1IsXrp)} ${pos.asset1Label}`,
-            asset2Line: `${formatAssetAmount(pos.asset2Value, pos.asset2IsXrp)} ${pos.asset2Label}`,
+            asset1Line: `${formatAssetAmount(amounts.asset1, pos.asset1IsXrp)} ${pos.asset1Label}`,
+            asset2Line: `${formatAssetAmount(amounts.asset2, pos.asset2IsXrp)} ${pos.asset2Label}`,
           },
         });
       }
@@ -156,12 +142,12 @@ export default function HoldingsList({
 
     tokenRows.sort((a, b) => (b.valueUsd ?? -1) - (a.valueUsd ?? -1));
     return [xrpRow, ...tokenRows];
-  }, [address, xrpBalance, xrpPrice, trustLines, ammPositions, tokenPriceMap]);
-  const { visible, hasMore, loadMore, showAll } = usePagination(rows.length, 15);
+  }, [address, xrpBalance, xrpPrice, trustLines, ammPositions]);
+  const { visible, hasMore, loadMore, showAll, listRef } = usePagination(rows.length, 15);
   const pageRows = rows.slice(0, visible);
 
   return (
-    <div className="overflow-hidden rounded-2xl shadow-card bg-surface">
+    <>
       <table className="w-full table-fixed">
         <colgroup>
           {/* Asset takes the rest, Balance is wide enough for compacted
@@ -172,12 +158,12 @@ export default function HoldingsList({
           <col className="hidden sm:table-column sm:w-[18%]" />
         </colgroup>
         <thead>
-          <tr className="border-b border-elevated">
+          <tr className="border-b border-line">
             <th scope="col" className={`${thClass} text-left`}>Asset</th>
             {/* On mobile this column doubles for Balance + USD Value
                 stacked, so the header reads "Balance / Value". On sm+
                 we have a dedicated Value column to the right. */}
-            <th scope="col" className={`${thClass} text-right`}>
+            <th scope="col" className={`${thClass} text-right max-sm:pr-0`}>
               <span className="sm:hidden">Balance / Value</span>
               <span className="hidden sm:inline">Balance</span>
             </th>
@@ -185,13 +171,13 @@ export default function HoldingsList({
             <th scope="col" className={`${thClass} hidden text-right sm:table-cell`}>Value</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody ref={listRef}>
           {pageRows.map((row) => (
             <tr
               key={row.key}
-              className="border-b border-elevated last:border-b-0 transition-colors hover:bg-row-hover"
+              className="border-b border-line last:border-b-0 hover:bg-row-hover"
             >
-              <td className="px-4 py-row">
+              <td className={cell}>
                 <div className="flex items-center gap-2.5">
                   <TokenIcon
                     src={row.icon}
@@ -200,18 +186,18 @@ export default function HoldingsList({
                     className="size-7 shrink-0"
                   />
                   <div className="min-w-0">
-                    {/* Display font when row.name is a resolved
-                         descriptive name (e.g., "USD Coin"); mono
-                         when we fell back to the ticker code (then
-                         row.name === row.currency). */}
-                    <span
-                      className={`flex items-center gap-1.5 truncate text-cell font-bold text-primary ${
-                        row.name !== row.currency ? "font-display" : "font-mono"
-                      }`}
-                    >
-                      <span className="truncate">{row.name}</span>
+                    {/* Only the name truncates: a clip around it would
+                        cut its link's focus ring. */}
+                    <span className="flex items-center gap-1.5 font-mono text-cell font-bold text-primary">
+                      {row.token ? (
+                        <Link to={tokenPath(row.token)} className="link truncate">
+                          {row.name}
+                        </Link>
+                      ) : (
+                        <span className="truncate">{row.name}</span>
+                      )}
                       {row.lpComposition && (
-                        <span className="shrink-0 rounded-tag bg-tx-amm/10 px-1.5 py-0.5 font-mono text-micro font-semibold uppercase tracking-pill text-tx-amm">
+                        <span className="shrink-0 rounded-tag tag-amm px-1.5 py-0.5 font-mono text-micro font-semibold uppercase tracking-pill">
                           LP
                         </span>
                       )}
@@ -219,7 +205,7 @@ export default function HoldingsList({
                     <span className="block text-tag">
                       {row.issuer ? (
                         row.issuerName ? (
-                          <span className="font-display text-muted">{row.issuerName}</span>
+                          <span className="font-mono text-muted">{row.issuerName}</span>
                         ) : (
                           <AddressLink address={row.issuer} chars={6} />
                         )
@@ -230,7 +216,7 @@ export default function HoldingsList({
                   </div>
                 </div>
               </td>
-              <td className="px-4 py-row text-right font-mono text-cell tabular-nums text-primary">
+              <td className={`${cell} text-right font-mono text-cell tabular-nums text-primary max-sm:pr-0`}>
                 {row.lpComposition ? (
                   // LP rows render the two pool components on
                   // separate lines (cleaner than a single combined
@@ -254,10 +240,10 @@ export default function HoldingsList({
                   {row.valueUsd != null ? formatVolume(row.valueUsd) : "—"}
                 </span>
               </td>
-              <td className="hidden px-4 py-row text-right font-mono text-cell tabular-nums text-secondary sm:table-cell">
+              <td className={`${cell} hidden text-right font-mono text-cell tabular-nums text-primary sm:table-cell`}>
                 {row.priceUsd != null ? formatVolume(row.priceUsd) : "—"}
               </td>
-              <td className="hidden px-4 py-row text-right font-mono text-cell tabular-nums text-primary sm:table-cell">
+              <td className={`${cell} hidden text-right font-mono text-cell tabular-nums text-primary sm:table-cell`}>
                 {row.valueUsd != null ? formatVolume(row.valueUsd) : "—"}
               </td>
             </tr>
@@ -273,6 +259,6 @@ export default function HoldingsList({
           label="assets"
         />
       )}
-    </div>
+    </>
   );
 }

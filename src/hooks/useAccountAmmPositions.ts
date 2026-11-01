@@ -1,90 +1,68 @@
-"use client";
-
 /**
- * useAccountAmmPositions — fans out `amm_info` per LP trustline this
- * account holds, returning AMMPosition rows the Holdings/Positions tabs
- * render.
- *
- * Input is the LP-only partition from useAccountObjects. Keyed on a
- * stable representation of the LP issuer set so the SWR cache doesn't
- * thrash when the trustline array gets a new ref but represents the
- * same set (common on SWR re-validation).
- *
- * Part of the per-tab data-ownership refactor (Tier 2).
+ * useAccountAmmPositions — one `amm_info` per LP trust line the account
+ * holds (the first AMM_LOOKUP_CAP), a few at a time, as the AMMPosition
+ * rows Holdings/Positions render. Keyed on the LP issuer set, not the
+ * array identity.
  */
 
-import useSWR from "swr";
-import { useEffect, useMemo, useRef } from "react";
-import { useXrpl } from "./useXrplWs";
+import { useMemo } from "react";
 import { processAMMPositions } from "@/lib/amm-helpers";
-import type { SendFn } from "@/lib/xrpl-pagination";
+import { settledPool } from "@/lib/xrpl-pagination";
 import type { TrustLine } from "@/components/account/TrustLineList";
 import type { AMMPosition } from "@/types/amm";
+import { ACCOUNT_DATA_MAX_AGE_MS, useXrplQuery } from "./useXrplQuery";
 
-async function fetchAmmPositions(
-  lpTrustLines: TrustLine[],
-  address: string,
-  send: SendFn,
-): Promise<AMMPosition[]> {
-  if (lpTrustLines.length === 0) return [];
-  const ammResults = await Promise.allSettled(
-    lpTrustLines.map((lp) => {
-      const isHigh = lp.HighLimit.issuer === address;
-      const ammAccount = isHigh ? lp.LowLimit.issuer : lp.HighLimit.issuer;
-      return send({
-        command: "amm_info",
-        amm_account: ammAccount,
-        ledger_index: "validated",
-      });
-    }),
-  );
-  return processAMMPositions(lpTrustLines, ammResults, address);
+/** Requests in flight at once; public nodes throttle bigger bursts. */
+const CONCURRENCY = 6;
+/** Pools looked up per account. Holding more LP tokens is rare; past
+ *  this the rest are left out and `capped` says so. */
+export const AMM_LOOKUP_CAP = 50;
+
+interface AmmPositions {
+  positions: AMMPosition[];
+  /** Pools whose `amm_info` failed. */
+  failed: number;
 }
 
-export function useAccountAmmPositions(
-  lpTrustLines: TrustLine[],
-  address: string,
-) {
-  const { send, connected } = useXrpl();
-  const sendRef = useRef(send);
-  useEffect(() => {
-    sendRef.current = send;
-  }, [send]);
+const NONE: AMMPosition[] = [];
 
-  // Stable key on the issuer pair set — invariant under SWR re-validations
-  // that hand back a new array ref for the same logical LP positions.
+function ammAccountOf(lp: TrustLine, address: string): string {
+  return lp.HighLimit.issuer === address ? lp.LowLimit.issuer : lp.HighLimit.issuer;
+}
+
+export function useAccountAmmPositions(lpTrustLines: TrustLine[], address: string) {
+  const looked = useMemo(() => lpTrustLines.slice(0, AMM_LOOKUP_CAP), [lpTrustLines]);
   const lpKey = useMemo(
-    () =>
-      lpTrustLines
-        .map((lp) => `${lp.HighLimit.issuer}:${lp.LowLimit.issuer}`)
-        .sort()
-        .join("|"),
-    [lpTrustLines],
+    () => looked.map((lp) => `${lp.HighLimit.issuer}:${lp.LowLimit.issuer}`).sort().join("|"),
+    [looked],
   );
 
-  // Pin the latest LP array in a ref so the fetcher closure stays
-  // stable on `lpKey` while seeing fresh data.
-  const lpRef = useRef(lpTrustLines);
-  useEffect(() => {
-    lpRef.current = lpTrustLines;
-  }, [lpTrustLines]);
-
-  const { data, error, isLoading } = useSWR(
-    connected && lpTrustLines.length > 0
-      ? `amm-positions:${address}:${lpKey}`
-      : null,
-    () => fetchAmmPositions(lpRef.current, address, sendRef.current),
-    {
-      dedupingInterval: 10_000,
-      keepPreviousData: true,
-      errorRetryCount: 2,
-      revalidateOnFocus: false,
+  const { data, error, isLoading, retry } = useXrplQuery<AmmPositions>(
+    lpKey ? ["amm-positions", address, lpKey] : null,
+    async ({ send, signal }) => {
+      const lines = looked;
+      const results = await settledPool(
+        lines,
+        CONCURRENCY,
+        (lp) => send({ command: "amm_info", amm_account: ammAccountOf(lp, address), ledger_index: "validated" }),
+        signal,
+      );
+      return {
+        positions: processAMMPositions(lines, results, address),
+        failed: results.filter((r) => r.status === "rejected").length,
+      };
     },
+    { maxAgeMs: ACCOUNT_DATA_MAX_AGE_MS },
   );
 
   return {
-    ammPositions: data ?? [],
+    ammPositions: data?.positions ?? NONE,
+    /** Some pools couldn't be read; their value is missing. */
+    partial: !!data?.failed,
+    /** More LP lines than AMM_LOOKUP_CAP; the rest weren't looked up. */
+    capped: lpTrustLines.length > AMM_LOOKUP_CAP,
     isLoading,
     error,
+    retry,
   };
 }

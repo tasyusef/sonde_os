@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useRef, type ReactNode } from "react";
 
 interface TooltipProps {
@@ -34,7 +32,7 @@ export default function Tooltip({ content, children, block }: TooltipProps) {
       {visible && (
         <span
           role="tooltip"
-          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-normal rounded-lg border border-elevated bg-surface px-3 py-2 shadow-card"
+          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-normal rounded-lg border border-line bg-surface px-3 py-2 shadow-card"
           style={{ width: "max-content", maxWidth: 260 }}
         >
           <span className="font-mono text-cell text-muted">{content}</span>

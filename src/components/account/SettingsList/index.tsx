@@ -1,5 +1,8 @@
 import AddressLink from "@/components/shared/AddressLink";
+import Facts, { Fact } from "@/components/shared/Facts";
 import InfoTip from "@/components/shared/InfoTip";
+import ListNotice from "@/components/shared/ListNotice";
+import Section from "@/components/shared/Section";
 import type { AccountSettings } from "@/types/xrpl";
 
 const ACCOUNT_FLAGS: Array<{ mask: number; label: string; description: string }> = [
@@ -16,7 +19,8 @@ const ACCOUNT_FLAGS: Array<{ mask: number; label: string; description: string }>
   { mask: 0x08000000, label: "disallowIncomingCheck", description: "Incoming checks disabled" },
   { mask: 0x10000000, label: "disallowIncomingPayChan", description: "Incoming payment channels disabled" },
   { mask: 0x20000000, label: "disallowIncomingTrustline", description: "Incoming trust lines disabled" },
-  { mask: 0x40000000, label: "allowTrustLineClawback", description: "Can claw back issued tokens" },
+  { mask: 0x40000000, label: "allowTrustLineLocking", description: "Issued tokens can be held in escrow" },
+  { mask: 0x80000000, label: "allowTrustLineClawback", description: "Can claw back issued tokens" },
 ];
 
 function hexToAscii(hex: string): string {
@@ -46,16 +50,16 @@ export default function SettingsList({ settings }: { settings: AccountSettings }
 
   if (settings.domain) {
     const decoded = hexToAscii(settings.domain);
-    properties.push({ label: "Domain", value: <span className="font-mono text-cell text-primary">{decoded || settings.domain}</span> });
+    properties.push({ label: "Domain", value: decoded || settings.domain });
   }
   if (settings.regularKey) {
     properties.push({ label: "Regular Key", value: <AddressLink address={settings.regularKey} truncate={false} /> });
   }
   if (settings.transferRate && settings.transferRate !== 1_000_000_000) {
-    properties.push({ label: "Transfer Fee", value: <span className="font-mono text-cell text-primary">{formatTransferRate(settings.transferRate)}</span> });
+    properties.push({ label: "Transfer Fee", value: formatTransferRate(settings.transferRate) });
   }
   if (settings.tickSize) {
-    properties.push({ label: "Tick Size", value: <span className="font-mono text-cell text-primary tabular-nums">{settings.tickSize}</span> });
+    properties.push({ label: "Tick Size", value: <span className="tabular-nums">{settings.tickSize}</span> });
   }
   if (settings.nfTokenMinter) {
     properties.push({
@@ -72,28 +76,24 @@ export default function SettingsList({ settings }: { settings: AccountSettings }
     });
   }
   if (settings.mintedNFTokens !== undefined) {
-    properties.push({ label: "NFTs Minted", value: <span className="font-mono text-cell text-primary tabular-nums">{settings.mintedNFTokens.toLocaleString()}</span> });
+    properties.push({ label: "NFTs Minted", value: <span className="tabular-nums">{settings.mintedNFTokens.toLocaleString()}</span> });
   }
   if (settings.burnedNFTokens !== undefined) {
-    properties.push({ label: "NFTs Burned", value: <span className="font-mono text-cell text-primary tabular-nums">{settings.burnedNFTokens.toLocaleString()}</span> });
+    properties.push({ label: "NFTs Burned", value: <span className="tabular-nums">{settings.burnedNFTokens.toLocaleString()}</span> });
   }
 
   return (
-    <div className="space-y-6">
-      {/* Account Flags */}
-      <div className="rounded-2xl shadow-card bg-surface p-6">
-        <h3 className="mb-4 font-display text-lg font-medium text-primary">
-          Account Flags
-        </h3>
+    <div className="space-y-12">
+      <Section title="Account Flags">
         {activeFlags.length === 0 ? (
-          <p className="font-mono text-body text-muted">No flags enabled</p>
+          <ListNotice message="No flags enabled." />
         ) : (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
               {activeFlags.map((f) => (
                 <span
                   key={f.label}
-                  className="rounded-tag px-2 py-0.5 font-mono text-tag font-medium bg-success/8 text-success"
+                  className="rounded-tag px-2 py-0.5 font-mono text-tag font-medium tag-success"
                   title={f.description}
                 >
                   {f.label}
@@ -103,16 +103,16 @@ export default function SettingsList({ settings }: { settings: AccountSettings }
             <div className="mt-3 space-y-1.5">
               {activeFlags.map((f) => (
                 <div key={f.label} className="flex items-start gap-2">
-                  <span className="mt-0.5 inline-block size-1.5 shrink-0 rounded-full bg-success" />
-                  <span className="font-mono text-cell text-secondary">{f.description}</span>
+                  <span className="mt-0.5 inline-block size-1.5 shrink-0 rounded-full bg-success-mark" />
+                  <span className="font-mono text-cell text-primary">{f.description}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
         {inactiveFlags.length > 0 && (
-          <div className="mt-4 border-t border-elevated pt-4">
-            <p className="mb-2 font-display text-label text-muted uppercase tracking-header">
+          <div className="mt-4 border-t border-line pt-4">
+            <p className="mb-2 font-display text-caps text-muted uppercase tracking-header">
               Inactive
             </p>
             <div className="flex flex-wrap gap-2">
@@ -128,34 +128,26 @@ export default function SettingsList({ settings }: { settings: AccountSettings }
             </div>
           </div>
         )}
-      </div>
+      </Section>
 
-      {/* Account Properties — mobile-first stacked layout. Long values
-            (full addresses, hex domains) overflowed the right edge on
-            narrow viewports; stacking puts the label above the value
-            and lets the value wrap naturally. */}
       {properties.length > 0 && (
-        <div className="rounded-2xl shadow-card bg-surface p-6">
-          <h3 className="mb-4 font-display text-lg font-medium text-primary">
-            Account Properties
-          </h3>
-          <div className="space-y-3">
+        <Section title="Account Properties">
+          <Facts>
             {properties.map((prop) => (
-              <div
+              <Fact
                 key={prop.label}
-                className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+                label={
+                  <span className="inline-flex items-center gap-1">
+                    {prop.label}
+                    {prop.tip && <InfoTip>{prop.tip}</InfoTip>}
+                  </span>
+                }
               >
-                <span className="flex shrink-0 items-center gap-1 font-display text-label font-medium uppercase tracking-header text-muted">
-                  {prop.label}
-                  {prop.tip && <InfoTip>{prop.tip}</InfoTip>}
-                </span>
-                <span className="min-w-0 break-all sm:text-right">
-                  {prop.value}
-                </span>
-              </div>
+                {prop.value}
+              </Fact>
             ))}
-          </div>
-        </div>
+          </Facts>
+        </Section>
       )}
     </div>
   );

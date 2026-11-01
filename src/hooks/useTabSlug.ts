@@ -1,7 +1,7 @@
-"use client";
+import { useCallback, useSyncExternalStore } from "react";
+import { useSearchParams } from "react-router";
 
-import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+const noopSubscribe = () => () => {};
 
 /**
  * Drop-in replacement for `useState<string>(defaultTab)` that persists the
@@ -27,20 +27,15 @@ import { useSearchParams } from "next/navigation";
  * ```
  *
  * Behavior:
- * - Initial value comes from the URL search param at first paint (so
- *   `?tab=holdings` boots the page on the holdings tab).
- * - Subsequent updates write to `window.history.replaceState` directly
- *   instead of `router.replace`. The previous router.replace path
- *   triggered a full server soft-navigation on every click — fine when
- *   the SSR is sub-200ms, miserable when CH is loaded (e.g. during a
- *   backfill) and the page takes 1-3s to respond. Click-to-feedback was
- *   gated by the slowest server response, and rapid spam-clicks queued
- *   pending navigations that masked themselves as "nothing happened".
- *   The new path is pure client state plus a URL-sync side effect, so
- *   tab clicks are instant regardless of server load.
- * - Back/forward still work via the popstate listener.
+ * - The URL is the state: the tab is read from the search param, so
+ *   back/forward and links that set `?tab=` just work.
+ * - Updates replace the history entry (tab clicks shouldn't fill history)
+ *   and keep the scroll position.
  * - When the active value equals the default, the param is REMOVED from
  *   the URL — keeps default URLs clean (`/network` not `/network?tab=overview`).
+ * - While hydrating it returns the default: prerendered pages (`/network`)
+ *   were built without a query string, so reading `?tab=` then would
+ *   mismatch the HTML. React re-renders with the URL's tab right after.
  * - Type parameter `T extends string` so consumers can keep their narrow
  *   tab-id union types and get full type safety on setActive.
  */
@@ -66,43 +61,23 @@ export function useTabSlug<T extends string>(
   defaultTab: T,
   paramName: string = "tab",
 ): [T, (next: T) => void] {
-  const searchParams = useSearchParams();
-
-  // Initial value from the URL — this is what the SSR rendered with so
-  // the first client render matches the server (no hydration mismatch).
-  // After mount we maintain local state and sync URL via replaceState.
-  const [activeTab, setActive] = useState<T>(
-    () => (searchParams.get(paramName) ?? defaultTab) as T,
-  );
-
-  // Keep state in sync with browser back/forward navigation. Reading
-  // searchParams in a popstate handler gives us the URL the user just
-  // navigated to.
-  useEffect(() => {
-    const onPopState = () => {
-      const url = new URL(window.location.href);
-      const next = (url.searchParams.get(paramName) ?? defaultTab) as T;
-      setActive(next);
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [paramName, defaultTab]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const activeTab = hydrated ? ((searchParams.get(paramName) ?? defaultTab) as T) : defaultTab;
 
   const setActiveTab = useCallback(
     (next: T) => {
-      setActive(next);
-      const url = new URL(window.location.href);
-      if (next === defaultTab) {
-        url.searchParams.delete(paramName);
-      } else {
-        url.searchParams.set(paramName, next);
-      }
-      // replaceState rather than pushState — tab changes shouldn't fill
-      // history with one entry per click. Same trade-off as the
-      // pre-existing router.replace call.
-      window.history.replaceState(null, "", url.toString());
+      setSearchParams(
+        // `prev` is a fresh copy, safe to mutate.
+        (prev) => {
+          if (next === defaultTab) prev.delete(paramName);
+          else prev.set(paramName, next);
+          return prev;
+        },
+        { replace: true, preventScrollReset: true },
+      );
     },
-    [paramName, defaultTab],
+    [setSearchParams, paramName, defaultTab],
   );
 
   return [activeTab, setActiveTab];

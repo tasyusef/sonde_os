@@ -14,8 +14,8 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-block rounded-full px-2.5 py-0.5 font-mono text-label font-semibold uppercase tracking-wide",
-        isSuccess ? "bg-success/8 text-success" : "bg-error/8 text-error",
+        "inline-block rounded-tag px-1.5 py-0.5 font-mono text-label uppercase",
+        isSuccess ? "tag-success" : "tag-error",
         className
       )}
     >

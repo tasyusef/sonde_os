@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import CopyButton from "@/components/shared/CopyButton";
 import DemoCard from "../shared/DemoCard";
@@ -15,7 +13,7 @@ export default function CopyButtonDemo() {
       description="Clipboard icon with animated check feedback on copy. Resets after 2 seconds."
       preview={
         <div className="flex items-center gap-2">
-          <span className="font-mono text-cell text-secondary">{text}</span>
+          <span className="font-mono text-cell text-primary">{text}</span>
           <CopyButton text={text} />
         </div>
       }

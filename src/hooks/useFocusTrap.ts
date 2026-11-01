@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, type RefObject } from "react";
 
 /**
@@ -27,10 +25,15 @@ export function useFocusTrap<T extends HTMLElement>(
 
     const focusables = (): HTMLElement[] => {
       const nodes = container.querySelectorAll<HTMLElement>(
-        'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]',
       );
+      // tabindex="-1" drops roving-tabindex items (Toggle, tabs) that Tab
+      // skips, so first/last match what Tab actually reaches.
       return Array.from(nodes).filter(
-        (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
+        (el) =>
+          !el.hasAttribute("disabled") &&
+          el.getAttribute("tabindex") !== "-1" &&
+          el.offsetParent !== null,
       );
     };
 

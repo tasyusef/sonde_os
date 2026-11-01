@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import Pagination from "@/components/shared/Pagination";
 import DemoCard from "../shared/DemoCard";
@@ -29,10 +27,10 @@ export default function PaginationDemo() {
     <DemoCard
       name="Pagination"
       importPath="@/components/shared/Pagination"
-      description="Pagination footer with page-size select, range label, and prev/next chevrons. Used inside list/table cards (e.g. TransactionList, AMMList, TokenSearch)."
+      description="Pagination footer with page-size select, range label, and prev/next chevrons. Sits under a list or table on the page ground (e.g. TransactionList)."
       preview={
-        <div className="w-full rounded-2xl border border-elevated bg-surface">
-          <div className="px-4 py-8 text-center">
+        <div className="w-full">
+          <div className="py-8 text-center">
             <span className="font-mono text-cell text-muted">
               (list/table goes here)
             </span>

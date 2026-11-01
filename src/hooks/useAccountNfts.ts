@@ -1,82 +1,49 @@
-"use client";
-
 /**
- * useAccountNfts — paginated `account_nfts` for an XRPL address.
+ * useAccountNfts — every NFT an address holds (`account_nfts`), shared
+ * by the NFTs tab, its badge, the Offers tab and the overview's bids.
  *
- * Independent of useAccountObjects so the NFTs tab can render off its
- * own data. SWR-keyed on `account-nfts:${address}`.
- *
- * Dedups on NFTokenID — `account_nfts` occasionally returns overlapping
- * entries across page boundaries, surfacing as duplicate React keys.
- *
- * Part of the per-tab data-ownership refactor (Tier 2).
+ * Dedups on NFTokenID: `account_nfts` can repeat entries across page
+ * boundaries, which shows up as duplicate React keys.
  */
 
-import useSWR from "swr";
-import { useEffect, useRef } from "react";
-import { useXrpl } from "./useXrplWs";
-import { PAGE_CAP, XRPL_MAX_LIMIT, type SendFn } from "@/lib/xrpl-pagination";
-import type { AccountNFTsResult } from "@/types/xrpl";
+import { useMemo } from "react";
+import { collectPages, PAGE_CAP, walkOutcome, XRPL_MAX_LIMIT, type Walk } from "@/lib/xrpl-pagination";
 import type { NFTBrowseItem } from "@/types/nft";
+import { ACCOUNT_DATA_MAX_AGE_MS, useXrplQuery } from "./useXrplQuery";
 
-async function fetchAllNfts(
-  address: string,
-  send: SendFn,
-): Promise<NFTBrowseItem[]> {
-  let nfts: NFTBrowseItem[] = [];
-  try {
-    const first = (await send({
-      command: "account_nfts",
-      account: address,
-      limit: XRPL_MAX_LIMIT,
-    })) as AccountNFTsResult;
-    nfts = first.account_nfts ?? [];
-    let marker = first.marker;
-    let page = 0;
-    while (marker && page < PAGE_CAP) {
-      const next = (await send({
-        command: "account_nfts",
-        account: address,
-        limit: XRPL_MAX_LIMIT,
-        marker,
-      })) as AccountNFTsResult;
-      nfts = nfts.concat(next.account_nfts ?? []);
-      marker = next.marker;
-      page++;
-    }
-  } catch {
-    /* partial — return what we have */
-  }
-  // Dedup by NFTokenID (rippled emits overlap across page boundaries).
+const NONE: NFTBrowseItem[] = [];
+
+function dedupe(nfts: NFTBrowseItem[]): NFTBrowseItem[] {
   const seen = new Set<string>();
-  return nfts.filter((nft) => {
-    if (seen.has(nft.NFTokenID)) return false;
-    seen.add(nft.NFTokenID);
-    return true;
-  });
+  return nfts.filter((nft) => !seen.has(nft.NFTokenID) && !!seen.add(nft.NFTokenID));
 }
 
 export function useAccountNfts(address: string) {
-  const { send, connected } = useXrpl();
-  const sendRef = useRef(send);
-  useEffect(() => {
-    sendRef.current = send;
-  }, [send]);
-
-  const { data, error, isLoading } = useSWR(
-    connected ? `account-nfts:${address}` : null,
-    () => fetchAllNfts(address, sendRef.current),
-    {
-      dedupingInterval: 10_000,
-      keepPreviousData: true,
-      errorRetryCount: 2,
-      revalidateOnFocus: false,
+  const { data, error, isLoading, retry } = useXrplQuery<Walk<NFTBrowseItem>>(
+    address ? ["account-nfts", address] : null,
+    async ({ send, signal }) => {
+      const walk = walkOutcome(
+        await collectPages<NFTBrowseItem>(
+          send,
+          { command: "account_nfts", account: address, ledger_index: "validated", limit: XRPL_MAX_LIMIT },
+          (page) => page.account_nfts as NFTBrowseItem[] | undefined,
+          { maxPages: PAGE_CAP, signal },
+        ),
+      );
+      return { ...walk, items: dedupe(walk.items) };
     },
+    { maxAgeMs: ACCOUNT_DATA_MAX_AGE_MS },
   );
 
-  return {
-    nfts: data ?? [],
-    isLoading,
-    error,
-  };
+  return useMemo(
+    () => ({
+      nfts: data?.items ?? NONE,
+      isLoading,
+      error,
+      truncated: !!data?.truncated,
+      partial: !!data?.partial,
+      retry,
+    }),
+    [data, error, isLoading, retry],
+  );
 }

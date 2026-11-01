@@ -1,25 +1,19 @@
-"use client";
-
 import { useMemo } from "react";
 import CollectionsView from "@/components/nft/CollectionsView";
 import type { NormalizedNFT } from "@/components/nft/CollectionsView";
-import type { NFToken } from "@/components/account/NFTList";
+import type { NFTBrowseItem } from "@/types/nft";
 
 /**
- * Account-page NFT grid — thin wrapper around the shared
- * `CollectionsView`. Maps `NFToken[]` (the XRPL `account_nfts` shape)
- * to the normalized props the shared view expects, then defers all
- * rendering + metadata resolution to the shared component.
- *
- * Account doesn't surface valuations or a totals header — it just
- * renders the grid. Portfolio (`NFTHoldings`) is the same shared view
- * with `valuations` + `totals` + `title` passed in.
+ * Account-page NFT grid — thin wrapper around
+ * `CollectionsView`. Maps `NFTBrowseItem[]` (the XRPL `account_nfts` shape)
+ * to the normalized props the view expects, then defers all
+ * rendering + metadata resolution to it.
  */
 export default function NFTGrid({
   nfts,
   loadingList = false,
 }: {
-  nfts: NFToken[];
+  nfts: NFTBrowseItem[];
   /** True while `useAccountNfts` is paginating from rippled.
    *  Shown as "Loading NFTs…" before any cards render. */
   loadingList?: boolean;

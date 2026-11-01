@@ -1,4 +1,4 @@
-/** Shared types for live data flowing through the SSE pipeline. */
+/** Shared types for the live snapshot the relay sends (built by `relay/src/snapshot.rs`). */
 
 /** Minimal per-transaction summary for visual dot grids (ledger cards). */
 export interface TxSummary {

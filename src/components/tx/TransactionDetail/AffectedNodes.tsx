@@ -1,6 +1,10 @@
-import Link from "next/link";
+import { Link } from "react-router";
+import HashLink from "@/components/shared/HashLink";
+import Section from "@/components/shared/Section";
+import { cell, thClass } from "@/lib/table";
+import { cn } from "@/lib/utils";
 import { truncateHash } from "@/lib/xrpl-helpers";
-import type { AffectedNodeEntry } from "./index";
+import type { AffectedNodeEntry } from "./types";
 
 interface ParsedNode {
   status: "CREATED" | "MODIFIED" | "DELETED";
@@ -44,192 +48,158 @@ function parseNodes(nodes: AffectedNodeEntry[]): ParsedNode[] {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  CREATED: "bg-success/10 text-success",
-  MODIFIED: "bg-warning/10 text-warning",
-  DELETED: "bg-error/10 text-error",
+  CREATED: "tag-success",
+  MODIFIED: "bg-elevated text-muted",
+  DELETED: "tag-error",
 };
 
 const ENTRY_TYPE_STYLES: Record<string, string> = {
-  AccountRoot: "bg-tx-account/10 text-tx-account",
-  RippleState: "bg-tx-trust/10 text-tx-trust",
-  Offer: "bg-tx-offer/10 text-tx-offer",
-  DirectoryNode: "bg-tx-nft/10 text-tx-nft",
-  NFTokenPage: "bg-tx-nft/10 text-tx-nft",
-  NFTokenOffer: "bg-tx-nft/10 text-tx-nft",
-  PayChannel: "bg-tx-escrow/10 text-tx-escrow",
-  Escrow: "bg-tx-escrow/10 text-tx-escrow",
-  AMM: "bg-tx-amm/10 text-tx-amm",
+  AccountRoot: "tag-account",
+  RippleState: "tag-trust",
+  Offer: "tag-offer",
+  DirectoryNode: "tag-nft",
+  NFTokenPage: "tag-nft",
+  NFTokenOffer: "tag-nft",
+  PayChannel: "tag-escrow",
+  Escrow: "tag-escrow",
+  AMM: "tag-amm",
 };
 
 function entryTypeStyle(type: string): string {
-  return ENTRY_TYPE_STYLES[type] ?? "bg-elevated text-secondary";
+  return ENTRY_TYPE_STYLES[type] ?? "bg-elevated text-primary";
 }
 
-export default function AffectedNodes({ nodes }: { nodes: AffectedNodeEntry[] }) {
+const TAG = "rounded-tag px-1.5 py-0.5 text-tag font-medium uppercase";
+
+/**
+ * Every ledger entry the transaction touched. Mobile-first, same
+ * pattern as `EscrowList`:
+ *
+ *   Below lg: Status (+ entry type, object ID) | Previous transaction
+ *   lg+:      # | Status | Ledger entry type | Object ID | Previous transaction
+ *
+ * Below lg a row is two lines, so cells sit at the top; `min-h-5` holds
+ * the previous hash to a tag's 20px box so its text lines up with the
+ * tags'. From lg every cell is one line and they centre. A long entry
+ * type wraps inside its tag rather than overflow the column.
+ */
+export default function AffectedNodes({
+  nodes,
+  className,
+}: {
+  nodes: AffectedNodeEntry[];
+  className?: string;
+}) {
   const parsed = parseNodes(nodes);
 
   if (parsed.length === 0) return null;
 
   return (
-    <div className="overflow-hidden rounded-2xl shadow-card bg-surface">
-      <div className="border-b border-elevated px-4 py-2.5">
-        <h2 className="font-display text-body font-semibold text-primary">
-          Affected Nodes
-        </h2>
-      </div>
-      {/* Desktop / tablet: full table. Mobile: cards. The 5-col layout
-          horizontal-scrolls fine on tablet via overflow-x-auto, but on a
-          phone it forces scroll-then-read-then-scroll for every row. */}
-      <div className="hidden overflow-x-auto sm:block">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-elevated">
-              <th scope="col" className="w-10 px-4 py-row text-left font-display text-label font-medium uppercase tracking-header text-muted">
-                #
-              </th>
-              <th scope="col" className="px-4 py-row text-left font-display text-label font-medium uppercase tracking-header text-muted">
-                Status
-              </th>
-              <th scope="col" className="px-4 py-row text-left font-display text-label font-medium uppercase tracking-header text-muted">
-                Ledger entry type
-              </th>
-              <th scope="col" className="px-4 py-row text-left font-display text-label font-medium uppercase tracking-header text-muted">
-                Object ID
-              </th>
-              <th scope="col" className="px-4 py-row text-left font-display text-label font-medium uppercase tracking-header text-muted">
-                Previous transaction
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {parsed.map((node, i) => (
-              <tr
-                key={`${node.ledgerIndex}-${i}`}
-                className="border-b border-elevated last:border-b-0 transition-colors hover:bg-row-hover"
-              >
-                <td className="px-4 py-row font-mono text-cell text-muted">
-                  {i + 1}
-                </td>
-                <td className="px-4 py-row">
-                  <span
-                    className={`inline-block rounded-tag px-1.5 py-0.5 text-tag font-medium uppercase ${
-                      STATUS_STYLES[node.status] ?? "bg-elevated text-muted"
-                    }`}
-                  >
+    <Section title="Affected nodes" count={parsed.length} className={className}>
+      <table className="w-full table-fixed">
+        <colgroup>
+          <col className="hidden lg:table-column lg:w-10" />
+          <col className="w-auto lg:w-24" />
+          <col className="hidden lg:table-column lg:w-auto" />
+          <col className="hidden lg:table-column lg:w-52" />
+          <col className="w-[42%] lg:w-64" />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-line">
+            <th scope="col" className={`${thClass} hidden text-left lg:table-cell`}>
+              #
+            </th>
+            <th scope="col" className={`${thClass} text-left max-lg:pl-0`}>
+              <span className="lg:hidden">Status / Type</span>
+              <span className="hidden lg:inline">Status</span>
+            </th>
+            <th scope="col" className={`${thClass} hidden text-left lg:table-cell`}>
+              Ledger entry type
+            </th>
+            <th scope="col" className={`${thClass} hidden text-left lg:table-cell`}>
+              Object ID
+            </th>
+            <th scope="col" className={`${thClass} text-left`}>
+              Previous transaction
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {parsed.map((node, i) => (
+            <tr
+              key={`${node.ledgerIndex}-${i}`}
+              className="border-b border-line last:border-b-0 hover:bg-row-hover"
+            >
+              <td className={`${cell} hidden font-mono text-cell text-muted lg:table-cell`}>
+                {i + 1}
+              </td>
+              <td className={`${cell} max-lg:pl-0 max-lg:align-top`}>
+                <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+                  <span className={cn(TAG, STATUS_STYLES[node.status] ?? "bg-elevated text-muted")}>
                     {node.status}
                   </span>
-                </td>
-                <td className="px-4 py-row">
+                  {/* Folded here until its own column appears at lg. */}
                   <span
-                    className={`inline-block rounded-tag px-1.5 py-0.5 text-tag font-medium uppercase ${
-                      entryTypeStyle(node.ledgerEntryType)
-                    }`}
+                    className={cn(
+                      TAG,
+                      "max-w-full break-words lg:hidden",
+                      entryTypeStyle(node.ledgerEntryType),
+                    )}
                   >
                     {node.ledgerEntryType}
                   </span>
-                </td>
-                <td className="px-4 py-row">
-                  {node.ledgerIndex ? (
-                    <span
-                      className="font-mono text-cell text-muted"
-                      title={node.ledgerIndex}
-                    >
-                      {truncateHash(node.ledgerIndex, 10)}
-                    </span>
-                  ) : (
-                    <span className="font-mono text-cell text-muted">—</span>
+                </div>
+                {node.ledgerIndex && (
+                  <span
+                    className="mt-1 block break-words font-mono text-cell text-muted lg:hidden"
+                    title={node.ledgerIndex}
+                  >
+                    <span className="sr-only">Object ID </span>
+                    {truncateHash(node.ledgerIndex, 10)}
+                  </span>
+                )}
+              </td>
+              <td className={`${cell} hidden lg:table-cell`}>
+                <span
+                  className={cn(
+                    TAG,
+                    "inline-block max-w-full break-words",
+                    entryTypeStyle(node.ledgerEntryType),
                   )}
-                </td>
-                <td className="px-4 py-row">
+                >
+                  {node.ledgerEntryType}
+                </span>
+              </td>
+              <td className={`${cell} hidden font-mono text-cell text-muted lg:table-cell`}>
+                {node.ledgerIndex ? (
+                  <span title={node.ledgerIndex}>{truncateHash(node.ledgerIndex, 10)}</span>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className={`${cell} max-lg:align-top`}>
+                <span className="flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1">
                   {node.previousTxnID ? (
-                    <span className="flex items-center gap-2">
-                      <Link
-                        href={`/tx/${node.previousTxnID}`}
-                        className="font-mono text-cell text-muted transition-colors hover:text-secondary"
-                        title={node.previousTxnID}
-                      >
-                        {truncateHash(node.previousTxnID, 7)}
-                      </Link>
+                    <>
+                      <HashLink hash={node.previousTxnID} chars={7} />
                       {node.previousTxnLgrSeq != null && (
                         <Link
-                          href={`/ledger/${node.previousTxnLgrSeq}`}
-                          className="rounded-tag bg-brand/10 px-1.5 py-0.5 font-mono text-tag font-medium text-brand transition-colors hover:bg-brand/20"
+                          to={`/ledger/${node.previousTxnLgrSeq}`}
+                          className="rounded-tag bg-elevated px-1.5 py-0.5 font-mono text-tag text-primary hover:bg-primary hover:text-black"
                         >
                           {node.previousTxnLgrSeq.toLocaleString()}
                         </Link>
                       )}
-                    </span>
+                    </>
                   ) : (
                     <span className="font-mono text-cell text-muted">—</span>
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile card layout */}
-      <div className="sm:hidden">
-        {parsed.map((node, i) => (
-          <div
-            key={`${node.ledgerIndex}-${i}`}
-            className="border-b border-elevated px-4 py-3 last:border-b-0"
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-label text-muted">#{i + 1}</span>
-              <span
-                className={`rounded-tag px-1.5 py-0.5 text-tag font-medium uppercase ${
-                  STATUS_STYLES[node.status] ?? "bg-elevated text-muted"
-                }`}
-              >
-                {node.status}
-              </span>
-              <span
-                className={`rounded-tag px-1.5 py-0.5 text-tag font-medium uppercase ${
-                  entryTypeStyle(node.ledgerEntryType)
-                }`}
-              >
-                {node.ledgerEntryType}
-              </span>
-            </div>
-            {node.ledgerIndex && (
-              <div className="mt-2 flex flex-col gap-0.5">
-                <span className="font-display text-label uppercase tracking-header text-muted">
-                  Object ID
                 </span>
-                <span className="font-mono text-cell text-muted" title={node.ledgerIndex}>
-                  {truncateHash(node.ledgerIndex, 10)}
-                </span>
-              </div>
-            )}
-            {node.previousTxnID && (
-              <div className="mt-2 flex flex-col gap-0.5">
-                <span className="font-display text-label uppercase tracking-header text-muted">
-                  Previous transaction
-                </span>
-                <span className="flex items-center gap-2">
-                  <Link
-                    href={`/tx/${node.previousTxnID}`}
-                    className="font-mono text-cell text-muted transition-colors hover:text-secondary"
-                    title={node.previousTxnID}
-                  >
-                    {truncateHash(node.previousTxnID, 7)}
-                  </Link>
-                  {node.previousTxnLgrSeq != null && (
-                    <Link
-                      href={`/ledger/${node.previousTxnLgrSeq}`}
-                      className="rounded-tag bg-brand/10 px-1.5 py-0.5 font-mono text-tag font-medium text-brand transition-colors hover:bg-brand/20"
-                    >
-                      {node.previousTxnLgrSeq.toLocaleString()}
-                    </Link>
-                  )}
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Section>
   );
 }

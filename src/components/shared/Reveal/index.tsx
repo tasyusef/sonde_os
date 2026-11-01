@@ -1,7 +1,6 @@
-"use client";
-
 import { useRef, useEffect } from "react";
 import { motion, useReducedMotion, useAnimationControls } from "motion/react";
+import { SPRING } from "@/lib/motion";
 
 /**
  * Scroll-triggered entrance animation wrapper.
@@ -41,7 +40,7 @@ export function Reveal({
           controls.start({
             opacity: 1,
             y: 0,
-            transition: { duration: 0.4, delay: delay / 1000, ease: "easeOut" },
+            transition: { ...SPRING.smooth, delay: delay / 1000 },
           });
           observer.disconnect();
         }

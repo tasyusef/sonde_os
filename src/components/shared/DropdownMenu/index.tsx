@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useState,
   useRef,
@@ -9,7 +7,12 @@ import {
 } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Button, { type ButtonVariant, type ButtonSize } from "@/components/shared/Button";
+import { slideDownVariants, SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import PixelIcon from "@/components/shared/PixelIcon";
+
+/** Seconds between items as the menu opens. */
+const ITEM_STAGGER = 0.02;
 
 export interface DropdownItem {
   value: string;
@@ -125,22 +128,7 @@ export default function DropdownMenu({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         rightIcon={
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            aria-hidden="true"
-            className={cn("transition-transform", open && "rotate-180")}
-          >
-            <path
-              d="M3 4.5L6 7.5L9 4.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <PixelIcon name={open ? "chevron-up" : "chevron-down"} size="sm" />
         }
       >
         {triggerLabel}
@@ -151,13 +139,14 @@ export default function DropdownMenu({
           <motion.div
             role="listbox"
             aria-label={label}
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            variants={slideDownVariants}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            transition={SPRING.pop}
             style={{ ...widthStyle, transformOrigin: align === "right" ? "top right" : "top left" }}
             className={cn(
-              "absolute top-full z-50 mt-1.5 overflow-hidden rounded-lg border border-elevated bg-surface shadow-card",
+              "absolute top-full z-50 mt-1.5 overflow-hidden bg-surface shadow-card",
               widthClass,
               align === "right" ? "right-0" : "left-0",
             )}
@@ -181,38 +170,21 @@ export default function DropdownMenu({
                     onClick={handleClick}
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{
-                      delay: i * 0.02,
-                      duration: 0.15,
-                      ease: "easeOut",
-                    }}
+                    transition={{ ...SPRING.smooth, delay: i * ITEM_STAGGER }}
                     className={cn(
-                      "flex w-full items-center gap-2.5 px-3 py-2 text-left font-mono text-cell transition-colors",
-                      "focus-visible:outline-none focus-visible:bg-elevated",
+                      "flex w-full items-center gap-2.5 px-3 py-2 text-left font-mono text-cell",
+                      "-outline-offset-2",
                       item.disabled
                         ? "cursor-not-allowed text-muted/50"
                         : isSelected
-                          ? "bg-brand/10 text-brand"
-                          : "text-primary hover:bg-elevated",
+                          ? "bg-accent text-on-accent"
+                          : "text-primary hover:bg-primary hover:text-black focus-visible:bg-primary focus-visible:text-black",
                     )}
                   >
                     {item.icon && <span className="inline-flex shrink-0">{item.icon}</span>}
                     <span className="flex-1 truncate">{item.label}</span>
                     {!hideCheck && isSelected && (
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                        className="shrink-0"
-                      >
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
+                      <PixelIcon name="check" size="sm" className="shrink-0" />
                     )}
                   </motion.button>
                 );

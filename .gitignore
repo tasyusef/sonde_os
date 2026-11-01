@@ -13,12 +13,14 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
-
 # production
 /build
+
+# react router typegen
+/.react-router/
+
+# wrangler dev state
+/.wrangler/
 
 # misc
 .DS_Store
@@ -32,13 +34,13 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 
 # HyperFrames / marketing videos — kept local only
 marketing-videos/
@@ -46,7 +48,10 @@ marketing-videos/
 # Claude Code runtime artifacts
 .claude/*.lock
 
+# Agent worktrees (Claude Code)
+.claude/worktrees/
+
 # internal docs & agent instructions — never public
 docs/
 CLAUDE.md
-.claude/settings.local.json
+.claude/

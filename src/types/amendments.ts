@@ -1,16 +1,3 @@
-/** Raw response from XRPL `feature` command */
-export interface FeatureResponse {
-  [hash: string]: {
-    name: string;
-    enabled: boolean;
-    supported: boolean;
-    vetoed?: boolean;
-    count?: number;
-    threshold?: number;
-    validations?: number;
-  };
-}
-
 /** Raw Amendments ledger entry shape */
 export interface AmendmentsLedgerEntry {
   Amendments?: string[];
@@ -22,32 +9,25 @@ export interface AmendmentsLedgerEntry {
   }>;
 }
 
+/** An amendment's votes among the validators on the default UNL. */
+export interface AmendmentVotes {
+  yes: number;
+  /** Validators on the UNL. */
+  of: number;
+  /** Yes votes it needs to hold a majority. */
+  needed: number;
+}
+
 /** Processed amendment info for the UI */
 export interface AmendmentInfo {
   hash: string;
   name: string;
   enabled: boolean;
   enabledAt: string | null;
-  currentYesCount: number;
-  threshold: number;
-  totalValidators: number;
+  /** Holds a majority now: two weeks of it activates the amendment. */
   hasMajority: boolean;
-  majorityPercent: number;
-}
-
-/** Single data point for the vote history chart */
-export interface AmendmentVotePoint {
-  timestamp: number;
-  yesCount: number;
-  threshold: number;
-  totalValidators: number;
-  percent: number;
-}
-
-/** Summary stats for the amendments page */
-export interface AmendmentSummary {
-  totalKnown: number;
-  enabled: number;
-  pending: number;
-  withMajority: number;
+  /** When the majority it holds activates it (ISO). */
+  activatesAt: string | null;
+  /** Null when no source reports votes. */
+  votes: AmendmentVotes | null;
 }

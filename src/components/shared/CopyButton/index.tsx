@@ -1,10 +1,12 @@
-"use client";
-
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { fadeVariants, SPRING } from "@/lib/motion";
+import PixelIcon from "@/components/shared/PixelIcon";
 import { copyToClipboard } from "@/lib/utils";
 
-export default function CopyButton({ text }: { text: string }) {
+/** `size` follows the text beside it: `sm` in a line of data, `md` by a
+ *  hero's large figure. */
+export default function CopyButton({ text, size = "sm" }: { text: string; size?: "sm" | "md" }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -16,63 +18,47 @@ export default function CopyButton({ text }: { text: string }) {
   };
 
   return (
-    <motion.button
+    <button
       type="button"
       onClick={handleCopy}
-      whileHover={{ scale: 1.15 }}
-      whileTap={{ scale: 0.85 }}
-      transition={{ type: "spring", stiffness: 500, damping: 20 }}
-      // p-2 on mobile gives a ~30px tap target (closer to WCAG 44px ideal
-      // without inflating the visual element); reverts to p-1 on sm+ where
+      // p-2.5 on mobile gives a ~29px tap target (closer to WCAG 44px
+      // ideal without inflating the visual element); p-1.5 on sm+, where
       // a mouse is more likely and the icon needs to fit cleanly inside
       // dense Row layouts.
-      className="p-2 text-muted transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 rounded-sm sm:p-1"
+      className="p-2.5 text-muted hover:bg-primary hover:text-black sm:p-1.5"
       aria-label={copied ? "Copied" : "Copy to clipboard"}
     >
-      <span className="relative inline-flex h-[14px] w-[14px]">
+      <span className="inline-flex">
+        {/* `mode="wait"` holds the next icon until the old one leaves,
+             so exits use the quicker `snap`. */}
         <AnimatePresence mode="wait" initial={false}>
           {copied ? (
-            <motion.svg
+            <motion.span
               key="check"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="absolute inset-0 text-success"
-              initial={{ scale: 0.3, opacity: 0, rotate: -20 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              exit={{ scale: 0.3, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 20 }}
+              className="inline-flex text-success"
+              variants={fadeVariants}
+              initial="hidden"
+              animate="visible"
+              exit={{ opacity: 0, transition: SPRING.snap }}
+              transition={SPRING.pop}
             >
-              <polyline points="20 6 9 17 4 12" />
-            </motion.svg>
+              <PixelIcon name="check" size={size} />
+            </motion.span>
           ) : (
-            <motion.svg
-              key="clipboard"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="absolute inset-0"
-              initial={{ scale: 0.3, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.3, opacity: 0 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
+            <motion.span
+              key="copy"
+              className="inline-flex"
+              variants={fadeVariants}
+              initial="hidden"
+              animate="visible"
+              exit={{ opacity: 0, transition: SPRING.snap }}
+              transition={SPRING.pop}
             >
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </motion.svg>
+              <PixelIcon name="copy" size={size} />
+            </motion.span>
           )}
         </AnimatePresence>
       </span>
-    </motion.button>
+    </button>
   );
 }

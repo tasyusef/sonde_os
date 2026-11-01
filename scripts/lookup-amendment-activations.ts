@@ -201,7 +201,7 @@ async function main() {
   });
 
   /* Write the JSON output. */
-  const dataDir = resolve(__dirname, "data");
+  const dataDir = resolve(import.meta.dirname, "data");
   mkdirSync(dataDir, { recursive: true });
   const outputPath = resolve(dataDir, "amendment-activations.json");
   const json = results.reduce<
@@ -215,7 +215,7 @@ async function main() {
 
   /* Optionally auto-patch src/lib/xrpl-amendments.ts in place. */
   if (AUTO_UPDATE) {
-    const srcPath = resolve(__dirname, "..", "src", "lib", "xrpl-amendments.ts");
+    const srcPath = resolve(import.meta.dirname, "..", "src", "lib", "xrpl-amendments.ts");
     let src = readFileSync(srcPath, "utf-8");
     let patches = 0;
     for (const r of results) {

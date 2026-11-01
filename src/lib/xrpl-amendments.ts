@@ -1,15 +1,10 @@
 /**
- * XRPL amendment activation registry.
+ * XRPL amendment registry: name, ID and mainnet activation for each
+ * amendment we know about.
  *
- * Each amendment activates at a specific ledger via an `EnableAmendment`
- * pseudo-transaction. Before that ledger, the amendment's tx types either
- * don't exist (new types) or have different semantics (modified types).
- *
- * The classifier consults this registry before running per-tx-type
- * extraction, so:
- *   - AMM extraction doesn't run on ledgers before AMM was enabled
- *   - NFT extraction doesn't run on pre-NFT ledgers
- *   - Hooks extraction would only run if/when Hooks lands on mainnet
+ * The node's `feature` response doesn't always carry names, and the
+ * ledger never records when an amendment activated, so
+ * `amendments.ts` fills both from here.
  *
  * Amendment IDs sourced from rippled's `feature` JSON-RPC method against
  * `s1.ripple.com`. Activation ledgers populated via binary search on the
@@ -35,14 +30,8 @@ export interface AmendmentEntry {
 }
 
 /**
- * Amendments that gate transaction-type extraction in the classifier.
- *
- * If an amendment is here, the classifier's per-tx-type extractor for the
- * matching family checks `ledger_index >= activationLedger` before running.
- *
- * Entries with `activationLedger: null` are amendments not yet enabled on
- * mainnet (testnet only or still in voting). The classifier should never
- * extract for these — `isAmendmentActive` returns false defensively.
+ * Known amendments, keyed by name. `activationLedger: null` means not yet
+ * enabled on mainnet (testnet only or still in voting).
  */
 export const AMENDMENT_ACTIVATION: Record<string, AmendmentEntry> = {
   /* ── NFT family ────────────────────────────────────────────────── */
@@ -280,30 +269,3 @@ export const AMENDMENT_ACTIVATION: Record<string, AmendmentEntry> = {
     enabled: false,
   },
 };
-
-/**
- * Returns true iff an amendment is enabled and the given ledger index is
- * at-or-after the amendment's activation ledger. Returns false if the
- * amendment isn't enabled or the activation ledger is unknown (defensive
- * default: skip extraction rather than risk wrong rows).
- *
- * Use this in the classifier before running per-tx-type extractors, e.g.:
- *
- *   if (rawTx.TransactionType.startsWith('AMM') && !isAmendmentActive('AMM', ledgerIndex)) {
- *     // pre-AMM ledger; the AMM tx shouldn't exist. Skip extraction.
- *     continue;
- *   }
- */
-export function isAmendmentActive(name: string, ledgerIndex: number): boolean {
-  const entry = AMENDMENT_ACTIVATION[name];
-  if (!entry || !entry.enabled || entry.activationLedger == null) return false;
-  return ledgerIndex >= entry.activationLedger;
-}
-
-/**
- * Returns the amendment ID for a given amendment name. Useful for the
- * lookup script and any reverse lookups.
- */
-export function getAmendmentId(name: string): string | null {
-  return AMENDMENT_ACTIVATION[name]?.id ?? null;
-}

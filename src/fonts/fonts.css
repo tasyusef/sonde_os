@@ -1,0 +1,44 @@
+/* Self-hosted faces for the --font-* tokens in globals.css. Both are
+   bitmap designs: they are crisp only where a font pixel lands on whole
+   device pixels (sizes in globals.css). */
+
+/* ——— PARC Pixel (display, labels) ———
+   Caps only: lowercase draws as capitals, so never set case-sensitive data
+   (addresses, currency codes, names) in it. Regular is 6.25 pixels to the
+   em, Bold 13.75. Under 2 KB each, so Vite inlines them into the CSS and
+   they are never missing at first paint. */
+@font-face {
+  font-family: "PARC Pixel";
+  src: url("./ParcPixel-Regular.woff2") format("woff2");
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "PARC Pixel";
+  src: url("./ParcPixel-Bold.woff2") format("woff2");
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: block;
+}
+
+/* ——— Departure Mono (data, body) ———
+   Helena Zhang, SIL OFL 1.1 (DepartureMono-OFL.txt). One weight; 11
+   pixels to the em, 7 across and ascent 11, descent 3. The fallback
+   resizes Courier New (0.6em across) to that advance and line box, so the
+   swap doesn't shift layout. */
+@font-face {
+  font-family: "Departure Mono";
+  src: url("./DepartureMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Departure Mono Fallback";
+  src: local("Courier New");
+  ascent-override: 94.3%;
+  descent-override: 25.72%;
+  line-gap-override: 0%;
+  size-adjust: 106.04%;
+}

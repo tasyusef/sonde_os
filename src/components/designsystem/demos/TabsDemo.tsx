@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import Tabs from "@/components/shared/Tabs";
 import DemoCard from "../shared/DemoCard";
@@ -28,8 +26,7 @@ export default function TabsDemo() {
           <div
             role="tabpanel"
             aria-labelledby={`${active}-tab`}
-            className="mt-4 rounded-lg border border-elevated px-4 py-3 font-mono text-cell text-secondary"
-            style={{ backgroundColor: "color-mix(in srgb, var(--color-elevated) 30%, transparent)" }}
+            className="mt-4 rounded-lg border border-line bg-elevated/30 px-4 py-3 font-mono text-cell text-primary"
           >
             Content for &ldquo;{sampleTabs.find((t) => t.id === active)?.label}&rdquo; tab
           </div>

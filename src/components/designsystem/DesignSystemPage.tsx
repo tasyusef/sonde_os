@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import PasswordGate from "./PasswordGate";
 import DSNav from "./DSNav";

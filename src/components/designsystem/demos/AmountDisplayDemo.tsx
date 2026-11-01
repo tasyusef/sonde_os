@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { AmountDisplay } from "@/components/shared/AmountDisplay";
 import DemoCard from "../shared/DemoCard";
@@ -32,7 +30,7 @@ export default function AmountDisplayDemo() {
           />
           <ToggleControl label="showSign" checked={showSign} onChange={setShowSign} />
           <div>
-            <span className="mb-1 block font-display text-label uppercase tracking-header text-muted">
+            <span className="mb-1 block font-display text-caps uppercase tracking-header text-muted">
               Presets
             </span>
             <div className="flex gap-1.5">
@@ -40,7 +38,7 @@ export default function AmountDisplayDemo() {
                 <button
                   key={p.label}
                   onClick={() => setDrops(p.drops)}
-                  className="rounded-lg border border-elevated bg-elevated px-2 py-1 font-mono text-label text-secondary transition-colors hover:text-primary"
+                  className="bg-dither px-2 py-1 font-mono text-label text-primary hover:bg-primary hover:text-black"
                 >
                   {p.label}
                 </button>

@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { AddressLink } from "@/components/shared/AddressLink";
 import DemoCard from "../shared/DemoCard";
@@ -17,6 +15,8 @@ export default function AddressLinkDemo() {
       importPath="@/components/shared/AddressLink"
       description="Linked XRPL address with truncation. Monospace, brand salmon color."
       preview={
+        // Swallows the link's click (mouse or Enter) so the demo doesn't navigate.
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <span onClick={(e) => e.preventDefault()}>
           <AddressLink address={EXAMPLE_ADDRESS} truncate={truncate} chars={chars} />
         </span>

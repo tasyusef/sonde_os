@@ -1,121 +1,88 @@
-"use client";
-
-import { useEffect, useId, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { SPRING, slideDownVariants } from "@/lib/motion";
+import { useId, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { motion } from "motion/react";
+import { rovingIndex } from "@/lib/roving-index";
+import { SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { fitTabs } from "./fitTabs";
+import MoreMenu, { MoreLabel } from "./MoreMenu";
+import { useTabMetrics } from "./useTabMetrics";
 
 const tabBase =
-  "relative whitespace-nowrap pb-3 font-display text-ui font-medium tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50";
+  "relative whitespace-nowrap pb-3 font-display text-caps uppercase";
+const moreBase = cn(tabBase, "flex items-center gap-1");
 
 const activeStyle = "text-primary";
-const inactiveStyle = "text-muted hover:text-secondary";
+const inactiveStyle = "text-muted hover:text-primary";
 
+/**
+ * Underline tab strip (APG tabs, automatic activation). Tabs that don't
+ * fit go under a "More" listbox beside the tablist.
+ *
+ * - One Tab stop, on the active tab. ArrowLeft/Right wrap through every
+ *   tab, overflow ones included; Home/End jump to the ends. Focus follows
+ *   the selection.
+ * - The active tab is always in the strip with `id="${id}-tab"`, so a
+ *   panel's `aria-labelledby` always resolves. Selecting an overflow tab
+ *   (by arrow or from More) promotes it into the strip.
+ */
 export default function Tabs({
   tabs,
   activeTab,
   onChange,
   panelId,
+  ariaLabel,
 }: {
   tabs: { id: string; label: string }[];
   activeTab: string;
   onChange: (id: string) => void;
   /** ID of the associated tabpanel element for aria-controls linkage */
   panelId?: string;
+  /** Accessible name for the tablist, e.g. "Account sections". */
+  ariaLabel?: string;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
-  const moreRef = useRef<HTMLDivElement>(null);
-  const [visibleCount, setVisibleCount] = useState(tabs.length);
-  const [moreOpen, setMoreOpen] = useState(false);
   const underlineId = useId();
+  const { containerRef, measureRef, metrics } = useTabMetrics(
+    tabs.map((t) => `${t.id}\u0000${t.label}`).join("\u0001"),
+  );
+  const tabRefs = useRef(new Map<string, HTMLButtonElement>());
+  // Set when a selection lands on a tab that isn't mounted yet (it's
+  // being promoted out of More); focused once the strip re-renders.
+  const pendingFocus = useRef<string | null>(null);
 
-  // Measure how many tabs fit — ResizeObserver fires on initial observe
-  useEffect(() => {
-    const container = containerRef.current;
-    const measure = measureRef.current;
-    if (!container || !measure) return;
+  const activeIndex = tabs.findIndex((t) => t.id === activeTab);
+  const measured = metrics !== null && metrics.widths.length === tabs.length;
+  const visible = new Set(measured ? fitTabs(metrics, activeIndex) : tabs.keys());
+  const overflowTabs = tabs.filter((_, i) => !visible.has(i));
+  // A stale `activeTab` still leaves one way into the tablist.
+  const tabStop = activeIndex === -1 ? Math.min(...visible) : activeIndex;
 
-    const calculate = () => {
-      const containerWidth = container.clientWidth;
-      const gap = 24; // gap-6 = 1.5rem = 24px
-      const moreButtonWidth = 72; // approximate "More ▾" width
+  // Layout effect so focus moves before paint, not via a frame on <body>.
+  useLayoutEffect(() => {
+    if (pendingFocus.current !== activeTab) return;
+    pendingFocus.current = null;
+    tabRefs.current.get(activeTab)?.focus();
+  }, [activeTab]);
 
-      const tabEls = measure.children;
-      let usedWidth = 0;
-      let fits = 0;
+  const select = (id: string) => {
+    const el = tabRefs.current.get(id);
+    pendingFocus.current = el ? null : id;
+    el?.focus();
+    onChange(id);
+  };
 
-      for (let i = 0; i < tabEls.length; i++) {
-        const tabWidth = (tabEls[i] as HTMLElement).offsetWidth;
-        const extraGap = i > 0 ? gap : 0;
-        const needed = usedWidth + extraGap + tabWidth;
-
-        // Last tab fits without needing a More button
-        if (i === tabEls.length - 1 && needed <= containerWidth) {
-          fits = tabEls.length;
-          break;
-        }
-
-        // Check if this tab + More button fits
-        if (needed + gap + moreButtonWidth > containerWidth && i < tabEls.length - 1) {
-          break;
-        }
-
-        usedWidth = needed;
-        fits++;
-      }
-
-      setVisibleCount(Math.max(1, fits));
-    };
-
-    const ro = new ResizeObserver(calculate);
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, [tabs]);
-
-  // Close dropdown on outside click or Escape key
-  useEffect(() => {
-    if (!moreOpen) return;
-
-    const handleClick = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
-      }
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMoreOpen(false);
-    };
-
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [moreOpen]);
-
-  const visibleTabs = tabs.slice(0, visibleCount);
-  const overflowTabs = tabs.slice(visibleCount);
-  const hasOverflow = overflowTabs.length > 0;
-  const overflowActive = overflowTabs.some((t) => t.id === activeTab);
-
-  const handleKeyDown = (e: React.KeyboardEvent, currentIndex: number) => {
-    let nextIndex: number | null = null;
-    if (e.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
-    else if (e.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    else if (e.key === "Home") nextIndex = 0;
-    else if (e.key === "End") nextIndex = tabs.length - 1;
-
-    if (nextIndex !== null) {
-      e.preventDefault();
-      onChange(tabs[nextIndex].id);
-      setMoreOpen(nextIndex >= visibleCount);
-    }
+  const handleKeyDown = (e: KeyboardEvent, index: number) => {
+    const next = rovingIndex(e.key, index, tabs.length, {
+      orientation: "horizontal",
+      wrap: true,
+    });
+    if (next === null) return;
+    e.preventDefault();
+    select(tabs[next].id);
   };
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Hidden measurement row — renders all tabs offscreen to measure widths */}
+      {/* Hidden measurement row — every tab plus the More trigger, offscreen */}
       <div
         ref={measureRef}
         aria-hidden="true"
@@ -126,114 +93,53 @@ export default function Tabs({
             {tab.label}
           </span>
         ))}
+        <span className={moreBase}>
+          <MoreLabel />
+        </span>
       </div>
 
-      {/* Visible tabs */}
-      <div role="tablist" className="flex gap-6 border-b border-elevated">
-        {visibleTabs.map((tab, index) => (
-          <button
-            key={tab.id}
-            id={`${tab.id}-tab`}
-            role="tab"
-            aria-selected={tab.id === activeTab}
-            aria-controls={panelId}
-            tabIndex={tab.id === activeTab ? 0 : -1}
-            onClick={() => onChange(tab.id)}
-            onKeyDown={(e) => handleKeyDown(e, index)}
-            className={cn(tabBase, tab.id === activeTab ? activeStyle : inactiveStyle)}
-          >
-            {tab.label}
-            {tab.id === activeTab && (
-              <motion.span
-                aria-hidden="true"
-                layoutId={`tab-underline-${underlineId}`}
-                className="absolute -bottom-[2px] left-0 right-0 h-0.5 bg-brand"
-                transition={SPRING.layout}
-              />
-            )}
-          </button>
-        ))}
-
-        {/* More dropdown trigger */}
-        {hasOverflow && (
-          <div ref={moreRef} className="relative">
-            <button
-              onClick={() => setMoreOpen((prev) => !prev)}
-              aria-expanded={moreOpen}
-              aria-haspopup="listbox"
-              className={cn(
-                tabBase,
-                "flex items-center gap-1",
-                overflowActive ? activeStyle : inactiveStyle,
-              )}
-            >
-              More
-              <svg
-                aria-hidden="true"
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                className={cn("motion-safe:transition-transform", moreOpen && "rotate-180")}
+      <div className="flex gap-6 border-b border-line">
+        <div role="tablist" aria-label={ariaLabel} className="flex gap-6">
+          {tabs.map((tab, index) => {
+            if (!visible.has(index)) return null;
+            const isActive = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                ref={(el) => {
+                  if (el) tabRefs.current.set(tab.id, el);
+                  else tabRefs.current.delete(tab.id);
+                }}
+                type="button"
+                id={`${tab.id}-tab`}
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={panelId}
+                tabIndex={index === tabStop ? 0 : -1}
+                onClick={() => onChange(tab.id)}
+                onKeyDown={(e) => handleKeyDown(e, index)}
+                className={cn(tabBase, isActive ? activeStyle : inactiveStyle)}
               >
-                <path
-                  d="M3 4.5L6 7.5L9 4.5"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {overflowActive && (
-                <motion.span
-                  aria-hidden="true"
-                  layoutId={`tab-underline-${underlineId}`}
-                  className="absolute -bottom-[2px] left-0 right-0 h-0.5 bg-brand"
-                  transition={SPRING.layout}
-                />
-              )}
-            </button>
+                {tab.label}
+                {isActive && (
+                  <motion.span
+                    aria-hidden="true"
+                    layoutId={`tab-underline-${underlineId}`}
+                    className="absolute -bottom-[2px] left-0 right-0 h-0.5 bg-brand"
+                    transition={SPRING.layout}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-            {/* Dropdown menu */}
-            <AnimatePresence>
-              {moreOpen && (
-                <motion.div
-                  role="listbox"
-                  aria-label="More tabs"
-                  variants={slideDownVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="hidden"
-                  transition={SPRING.pop}
-                  style={{ transformOrigin: "top right" }}
-                  className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-2xl border border-elevated bg-surface py-1 shadow-card"
-                >
-                  {overflowTabs.map((tab, i) => (
-                    <button
-                      key={tab.id}
-                      id={`${tab.id}-tab`}
-                      role="option"
-                      aria-selected={tab.id === activeTab}
-                      tabIndex={0}
-                      onClick={() => {
-                        onChange(tab.id);
-                        setMoreOpen(false);
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, visibleCount + i)}
-                      className={cn(
-                        "block w-full whitespace-nowrap px-4 py-2 text-left font-display text-ui font-medium tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50",
-                        tab.id === activeTab
-                          ? "text-brand"
-                          : "text-muted hover:bg-elevated hover:text-secondary",
-                      )}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+        {overflowTabs.length > 0 && (
+          <MoreMenu
+            tabs={overflowTabs}
+            onSelect={select}
+            triggerClassName={cn(moreBase, inactiveStyle)}
+          />
         )}
       </div>
     </div>

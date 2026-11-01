@@ -1,8 +1,6 @@
-"use client";
-
 import { useMemo, useState } from "react";
 import Toggle from "@/components/shared/Toggle";
-import SectionHeader from "@/components/shared/SectionHeader";
+import Section from "@/components/shared/Section";
 import OfferList, { type Offer } from "@/components/account/OfferList";
 import OutgoingNftOffersList, {
   type OutgoingNftOffer,
@@ -15,7 +13,9 @@ import IncomingChecksList, {
 } from "@/components/account/IncomingChecksList";
 import { useAccountOffers } from "@/hooks/useAccountOffers";
 import { useAccountObjects } from "@/hooks/useAccountObjects";
-import { useAccountIncomingNftOffers } from "@/hooks/useAccountIncomingNftOffers";
+import { useAccountNfts } from "@/hooks/useAccountNfts";
+import { useAccountNftBids } from "@/hooks/useAccountNftBids";
+import { BID_SCAN_LIMIT, incomingOfferRows } from "@/lib/nft-bids";
 
 type OffersView = "outgoing" | "incoming";
 
@@ -39,24 +39,24 @@ interface OffersTabProps {
  * offers and Checks render as separate sections so two distinct data
  * shapes don't get crammed into one table.
  *
- * NFT buy offers are fetched via a server-side aggregation endpoint
- * that scans up to 500 NFTs and caches the result at the edge —
- * faster and more exhaustive than the old browser fan-out which was
- * capped at 50.
+ * NFT buy offers come from `nft_buy_offers` on the account's first 50
+ * NFTs (useAccountNftBids, shared with the Overview). Past 50 NFTs the
+ * section says it's partial.
  */
 export default function OffersTab({ address }: OffersTabProps) {
   const [view, setView] = useState<OffersView>("outgoing");
 
   const offersState = useAccountOffers(address);
   const objectsState = useAccountObjects(address);
-  const incomingNftState = useAccountIncomingNftOffers(address);
+  const nftsState = useAccountNfts(address);
+  const bids = useAccountNftBids(nftsState.nfts);
+  const incomingLoading = nftsState.isLoading || bids.isLoading;
 
-  // Sort highest-amount first — most actionable bids at the top.
-  const incomingNftOffers = useMemo<IncomingNftOffer[]>(() => {
-    return [...incomingNftState.offers].sort(
-      (a, b) => offerAmountValue(b.offer) - offerAmountValue(a.offer),
-    );
-  }, [incomingNftState.offers]);
+  // XRP bids first, highest first; IOU bids after, grouped by token.
+  const incomingNftOffers = useMemo<IncomingNftOffer[]>(
+    () => incomingOfferRows(bids.buyOffers),
+    [bids.buyOffers],
+  );
 
   // Filter checks — Destination = this account.
   const incomingChecks = useMemo<IncomingCheck[]>(() => {
@@ -84,12 +84,15 @@ export default function OffersTab({ address }: OffersTabProps) {
   const outgoingCount = outgoingDexOffers.length + outgoingNftOffers.length;
   const incomingCount = incomingNftOffers.length + incomingChecks.length;
 
-  // Surface the truncation note only when the server actually capped
-  // the scan (account holds more NFTs than the endpoint scans, currently
-  // 500). Below that, coverage is exhaustive.
-  const truncationNote = incomingNftState.truncated
-    ? `Showing offers on first ${incomingNftState.scannedNfts.toLocaleString()} of ${incomingNftState.totalNfts.toLocaleString()} NFTs`
-    : null;
+  // Only the first 50 NFTs are scanned; say so past that. Failed
+  // lookups make the list partial too.
+  const totalNfts = nftsState.nfts.length;
+  const incomingNote =
+    totalNfts > BID_SCAN_LIMIT
+      ? `Offers on the first ${BID_SCAN_LIMIT} of ${totalNfts.toLocaleString()} NFTs`
+      : bids.failed > 0
+        ? `Couldn't check ${bids.failed} of ${totalNfts} NFTs`
+        : null;
 
   return (
     <div className="space-y-2">
@@ -118,64 +121,47 @@ export default function OffersTab({ address }: OffersTabProps) {
       </div>
 
       {view === "outgoing" && (
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <SectionHeader
-              title="DEX Offers"
-              count={outgoingDexOffers.length}
-              status={offersState.isLoading ? "Loading DEX offers…" : null}
-            />
+        <div className="space-y-12">
+          <Section
+            title="DEX Offers"
+            count={outgoingDexOffers.length}
+            status={offersState.isLoading ? "Loading DEX offers…" : null}
+          >
             <OfferList offers={outgoingDexOffers as unknown as Offer[]} />
-          </div>
-          <div className="space-y-3">
-            <SectionHeader
-              title="NFT Offers"
-              count={outgoingNftOffers.length}
-              status={
-                objectsState.isLoading ? "Loading account objects…" : null
-              }
-            />
+          </Section>
+          <Section
+            title="NFT Offers"
+            count={outgoingNftOffers.length}
+            status={
+              objectsState.isLoading ? "Loading account objects…" : null
+            }
+          >
             <OutgoingNftOffersList offers={outgoingNftOffers} />
-          </div>
+          </Section>
         </div>
       )}
 
       {view === "incoming" && (
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <SectionHeader
-              title="NFT Buy Offers"
-              count={incomingNftOffers.length}
-              status={
-                incomingNftState.isLoading
-                  ? "Loading NFT buy offers…"
-                  : truncationNote
-              }
-            />
+        <div className="space-y-12">
+          <Section
+            title="NFT Buy Offers"
+            count={incomingNftOffers.length}
+            status={incomingLoading ? "Loading NFT buy offers…" : null}
+            note={incomingNote}
+          >
             <IncomingNftOffersList offers={incomingNftOffers} />
-          </div>
-          <div className="space-y-3">
-            <SectionHeader
-              title="Checks Received"
-              count={incomingChecks.length}
-              status={
-                objectsState.isLoading ? "Loading account objects…" : null
-              }
-            />
+          </Section>
+          <Section
+            title="Checks Received"
+            count={incomingChecks.length}
+            status={
+              objectsState.isLoading ? "Loading account objects…" : null
+            }
+          >
             <IncomingChecksList checks={incomingChecks} />
-          </div>
+          </Section>
         </div>
       )}
     </div>
   );
-}
-
-/** XRP-equivalent value for sorting. IOU bids without price data fall to
- *  zero so they end up at the bottom of the list rather than being
- *  hidden — a partial signal beats nothing. */
-function offerAmountValue(offer: IncomingNftOffer["offer"]): number {
-  if (typeof offer.amount === "string") {
-    return parseFloat(offer.amount);
-  }
-  return parseFloat(offer.amount.value);
 }

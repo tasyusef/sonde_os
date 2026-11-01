@@ -1,8 +1,6 @@
-"use client";
-
 import { useState, useRef, useEffect, useLayoutEffect, type ReactNode } from "react";
-import { Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PixelIcon from "@/components/shared/PixelIcon";
 
 /** Margin from viewport edges the popover should respect. */
 const VIEWPORT_MARGIN = 8;
@@ -163,21 +161,21 @@ export default function InfoTip({
         }}
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
+        // The padding, cancelled by the margin, widens the 9px mark's
+        // target without moving the line.
         className={cn(
-          "inline-flex items-center justify-center rounded-full text-muted hover:text-primary",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
-          "touch-manipulation",
+          "-m-1 inline-flex touch-manipulation items-center justify-center p-1 text-muted hover:text-primary",
           className,
         )}
       >
-        <Info aria-hidden="true" className="h-3.5 w-3.5" />
+        <PixelIcon name="info" size="sm" />
       </button>
       {open && (
         <span
           ref={popoverRef}
           role="tooltip"
           className={cn(
-            "absolute left-1/2 z-50 rounded-lg border border-elevated bg-surface px-3 py-2.5 shadow-lg",
+            "absolute left-1/2 z-50 rounded-lg border border-line bg-surface px-3 py-2.5 shadow-lg",
             resolvedSide === "top" ? "bottom-full mb-2" : "top-full mt-2",
           )}
           // Initial values — useLayoutEffect mutates these directly via
@@ -198,7 +196,7 @@ export default function InfoTip({
               uppercase + tracking-header + font-mono). Tooltip prose
               wants body font, normal case, normal letter spacing,
               and comfortable leading. */}
-          <span className="block font-body text-cell font-normal normal-case tracking-normal text-primary leading-relaxed">
+          <span className="block font-body text-cell font-normal normal-case tracking-normal text-primary leading-read-sm">
             {children}
           </span>
         </span>

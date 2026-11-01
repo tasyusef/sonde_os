@@ -32,15 +32,15 @@ export default function LoadingDots({
       aria-hidden="true"
     >
       <span
-        className="rounded-full bg-current animate-loading-dot"
+        className="bg-current animate-loading-dot"
         style={dotStyle}
       />
       <span
-        className="rounded-full bg-current animate-loading-dot"
+        className="bg-current animate-loading-dot"
         style={{ ...dotStyle, animationDelay: "200ms" }}
       />
       <span
-        className="rounded-full bg-current animate-loading-dot"
+        className="bg-current animate-loading-dot"
         style={{ ...dotStyle, animationDelay: "400ms" }}
       />
     </span>

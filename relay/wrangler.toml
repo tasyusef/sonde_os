@@ -1,0 +1,27 @@
+# Sonde live relay. One Durable Object holds a single XRPL node connection and
+# sends every visitor a compact snapshot per ledger close.
+name = "sonde-relay"
+main = "build/index.js"
+compatibility_date = "2026-09-01"
+# Served only at relay.sondelab.com, with no workers.dev URL.
+routes = [{ pattern = "relay.sondelab.com", custom_domain = true }]
+workers_dev = false
+
+# Workers Logs: keeps the relay's failover and watchdog lines for 3 days.
+[observability]
+enabled = true
+
+[build]
+command = "sh ./build.sh"
+watch_dir = "src"
+
+[durable_objects]
+bindings = [{ name = "LIVE_RELAY", class_name = "LiveRelay" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LiveRelay"]
+
+[vars]
+# Pages allowed to open /live (comma-separated).
+ALLOWED_ORIGINS = "https://sondelab.com,https://www.sondelab.com,http://localhost:3000,http://localhost:3001"

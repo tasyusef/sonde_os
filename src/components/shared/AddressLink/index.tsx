@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "react-router";
 import { truncateAddress } from "@/lib/xrpl-helpers";
 import { cn } from "@/lib/utils";
 
@@ -15,19 +15,10 @@ export function AddressLink({
 }) {
   return (
     <Link
-      href={`/account/${address}`}
-      className={cn(
-        "group relative inline-block font-mono text-cell text-brand transition-colors hover:text-brand-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 rounded-sm",
-        className
-      )}
+      to={`/account/${address}`}
+      className={cn("link inline-block font-mono text-cell text-primary", className)}
     >
-      <span className="relative">
-        {truncate ? truncateAddress(address, chars) : address}
-        <span
-          aria-hidden="true"
-          className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-current transition-transform duration-200 ease-out group-hover:scale-x-100"
-        />
-      </span>
+      {truncate ? truncateAddress(address, chars) : address}
     </Link>
   );
 }

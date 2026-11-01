@@ -1,11 +1,10 @@
-"use client";
-
+import PixelIcon from "@/components/shared/PixelIcon";
 import { cn } from "@/lib/utils";
 
 const labelClass =
-  "block font-display text-label uppercase tracking-header text-muted mb-1";
+  "block font-display text-caps uppercase tracking-header text-muted mb-1";
 const inputClass =
-  "rounded-lg border border-elevated bg-elevated px-2.5 py-1 font-mono text-cell text-primary outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand/50";
+  "border border-line bg-surface px-2.5 py-1 font-mono text-cell text-primary";
 
 export function SelectControl({
   label,
@@ -54,13 +53,13 @@ export function ToggleControl({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative h-6 w-10 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
-          checked ? "bg-brand" : "bg-elevated"
+          "relative h-6 w-10 rounded-full",
+          checked ? "bg-accent" : "bg-elevated"
         )}
       >
         <span
           className={cn(
-            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white",
             checked && "translate-x-4"
           )}
         />
@@ -131,7 +130,7 @@ export function NumberControl({
           }}
           className={cn(
             inputClass,
-            "w-16 rounded-r-none border-r-0 text-center tabular-nums"
+            "w-16 border-r-0 text-center tabular-nums"
           )}
         />
         <div className="flex flex-col">
@@ -140,22 +139,18 @@ export function NumberControl({
             aria-label={`Increase ${label}`}
             onClick={() => onChange(clamp(value + step))}
             disabled={max !== undefined && value >= max}
-            className="flex h-[15px] w-7 items-center justify-center rounded-tr-lg border border-elevated bg-elevated text-muted transition-colors hover:bg-surface hover:text-primary disabled:opacity-30"
+            className="flex h-[15px] w-7 items-center justify-center border border-line bg-surface text-muted enabled:hover:bg-primary enabled:hover:text-black disabled:opacity-30"
           >
-            <svg width="8" height="5" viewBox="0 0 8 5" fill="none">
-              <path d="M1 4L4 1L7 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <PixelIcon name="chevron-up" size="sm" />
           </button>
           <button
             type="button"
             aria-label={`Decrease ${label}`}
             onClick={() => onChange(clamp(value - step))}
             disabled={min !== undefined && value <= min}
-            className="flex h-[15px] w-7 items-center justify-center rounded-br-lg border border-t-0 border-elevated bg-elevated text-muted transition-colors hover:bg-surface hover:text-primary disabled:opacity-30"
+            className="flex h-[15px] w-7 items-center justify-center border border-t-0 border-line bg-surface text-muted enabled:hover:bg-primary enabled:hover:text-black disabled:opacity-30"
           >
-            <svg width="8" height="5" viewBox="0 0 8 5" fill="none">
-              <path d="M1 1L4 4L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <PixelIcon name="chevron-down" size="sm" />
           </button>
         </div>
       </div>

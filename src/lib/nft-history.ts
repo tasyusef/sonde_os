@@ -1,66 +1,34 @@
-import { xrplClient } from "@/lib/xrpl-client";
-import { singleflight, nftHistoryDataCache } from "@/lib/cache";
 import type { NFTHistoryTransaction } from "@/types/nft";
 import type { NFTHistoryResponse } from "@/types/xrpl-responses";
 
-type HistoryTx = NonNullable<NFTHistoryResponse["transactions"]>[number];
+export type NftHistoryEntry = NonNullable<NFTHistoryResponse["transactions"]>[number];
 
-function extractAmount(
-  tx: HistoryTx["tx"]
-): NFTHistoryTransaction["amount"] | undefined {
-  if (!tx?.Amount) return undefined;
-  if (typeof tx.Amount === "string") return tx.Amount;
-  return {
-    value: tx.Amount.value,
-    currency: tx.Amount.currency,
-    issuer: tx.Amount.issuer,
-  };
-}
-
-async function fetchNFTHistoryUncached(
-  nftId: string,
-): Promise<NFTHistoryTransaction[]> {
-  const transactions: NFTHistoryTransaction[] = [];
-  let marker: unknown = undefined;
-  const maxPages = 4;
-
-  for (let page = 0; page < maxPages; page++) {
-    const result = await xrplClient.getNFTHistory(nftId, marker);
-    if (!result?.transactions) break;
-
-    for (const entry of result.transactions) {
-      const tx = entry.tx;
-      if (!tx?.TransactionType || !tx?.Account) continue;
-      const hash = tx.hash ?? entry.hash;
-      if (!hash) continue;
-
-      transactions.push({
-        hash,
-        type: tx.TransactionType,
-        account: tx.Account,
-        date: tx.date,
-        ledger_index: tx.ledger_index,
-        result: entry.meta?.TransactionResult ?? "unknown",
-        amount: extractAmount(tx),
-      });
-    }
-
-    marker = result.marker;
-    if (!marker) break;
+/** `nft_history` (Clio) entries → table rows, newest first as Clio
+ *  returns them. Entries without a type, account or hash are dropped. */
+export function nftHistoryRows(entries: readonly NftHistoryEntry[]): NFTHistoryTransaction[] {
+  const rows: NFTHistoryTransaction[] = [];
+  for (const entry of entries) {
+    const tx = entry.tx;
+    const hash = tx?.hash ?? entry.hash;
+    if (!tx?.TransactionType || !tx.Account || !hash) continue;
+    const amount = tx.Amount;
+    rows.push({
+      hash,
+      type: tx.TransactionType,
+      account: tx.Account,
+      date: tx.date,
+      ledger_index: tx.ledger_index,
+      result: entry.meta?.TransactionResult ?? "unknown",
+      amount:
+        amount === undefined || typeof amount === "string"
+          ? amount
+          : { value: amount.value, currency: amount.currency, issuer: amount.issuer },
+    });
   }
-
-  return transactions;
+  return rows;
 }
 
-/** Fetch paginated nft_history and normalize into NFTHistoryTransaction[].
- *  Deduped + cached via singleflight — multiple callers for the same nftId
- *  in the same render share one underlying network request. */
-export function getNFTHistory(
-  nftId: string,
-): Promise<NFTHistoryTransaction[]> {
-  return singleflight(
-    `nft-history:${nftId}`,
-    nftHistoryDataCache,
-    () => fetchNFTHistoryUncached(nftId),
-  );
+/** The successful burn, if the NFT was burned. */
+export function findBurn(rows: readonly NFTHistoryTransaction[]): NFTHistoryTransaction | undefined {
+  return rows.find((tx) => tx.type === "NFTokenBurn" && tx.result === "tesSUCCESS");
 }

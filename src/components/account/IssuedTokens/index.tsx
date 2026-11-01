@@ -1,9 +1,10 @@
-"use client";
-
-import Link from "next/link";
+import { Link } from "react-router";
 import { decodeCurrency } from "@/lib/xrpl-helpers";
-import TokenIcon from "@/components/tokens/TokenIcon";
+import TokenIcon from "@/components/shared/TokenIcon";
+import ListNotice from "@/components/shared/ListNotice";
 import { LoadMoreFooter, usePagination } from "@/components/shared/Paginated";
+import { cell, thClass } from "@/lib/table";
+import { isLpCurrency, tokenPath } from "@/lib/token-id";
 
 export interface IssuedToken {
   /** Raw XRPL currency code — 3-char or 40-char hex */
@@ -12,50 +13,36 @@ export interface IssuedToken {
   outstanding: string;
 }
 
-const thClass =
-  "px-4 py-row font-display text-label font-medium uppercase tracking-header text-muted";
-
-/** AMM LP tokens encode as 40-char hex starting with "03" — exclude them. */
-function isLpCurrency(currency: string): boolean {
-  return currency.length === 40 && currency.startsWith("03");
-}
-
 function formatSupply(value: string): string {
   const n = parseFloat(value);
   if (!Number.isFinite(n)) return "—";
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export default function IssuedTokens({
-  tokens,
-  issuer,
-}: {
-  tokens: IssuedToken[];
-  issuer: string;
-}) {
+/** The tokens `issuer` issued, each opening its token page. */
+export default function IssuedTokens({ issuer, tokens }: { issuer: string; tokens: IssuedToken[] }) {
   const rows = tokens
     .filter((t) => !isLpCurrency(t.currency))
     .map((t) => ({ ...t, ticker: decodeCurrency(t.currency) }))
     .sort((a, b) => parseFloat(b.outstanding) - parseFloat(a.outstanding));
 
-  const { visible, hasMore, loadMore, showAll } = usePagination(rows.length, 15);
+  const { visible, hasMore, loadMore, showAll, listRef } = usePagination(rows.length, 15);
   const pageRows = rows.slice(0, visible);
 
   if (rows.length === 0) {
-    return (
-      <div className="rounded-2xl shadow-card bg-surface p-8 text-center">
-        <p className="font-mono text-body text-muted">
-          No tokens issued by this account
-        </p>
-      </div>
-    );
+    return <ListNotice message="No tokens issued by this account." />;
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl shadow-card bg-surface">
-      <table className="w-full">
+    <>
+      <table className="w-full table-fixed">
+        <colgroup>
+          <col className="w-auto" />
+          <col className="hidden sm:table-column sm:w-[40%]" />
+          <col className="w-[50%] sm:w-[30%]" />
+        </colgroup>
         <thead>
-          <tr className="border-b border-elevated">
+          <tr className="border-b border-line">
             <th scope="col" className={`${thClass} text-left`}>Token</th>
             <th scope="col" className={`${thClass} hidden text-left sm:table-cell`}>
               Currency Code
@@ -65,34 +52,34 @@ export default function IssuedTokens({
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody ref={listRef}>
           {pageRows.map((row) => (
             <tr
               key={row.currency}
-              className="border-b border-elevated last:border-b-0 transition-colors hover:bg-row-hover"
+              className="border-b border-line last:border-b-0 hover:bg-row-hover"
             >
-              <td className="px-4 py-row">
-                <Link
-                  href={`/markets/${row.currency}/${issuer}`}
-                  className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 rounded"
-                >
+              <td className={cell}>
+                <div className="flex items-center gap-2.5">
                   <TokenIcon
                     src={null}
                     currency={row.ticker}
                     size={28}
                     className="size-7 shrink-0"
                   />
-                  <span className="font-mono text-cell font-medium text-brand">
+                  <Link
+                    to={tokenPath({ kind: "iou", currency: row.currency, issuer })}
+                    className="link min-w-0 break-words font-mono text-cell font-medium text-primary"
+                  >
                     {row.ticker}
-                  </span>
-                </Link>
+                  </Link>
+                </div>
               </td>
-              <td className="hidden px-4 py-row sm:table-cell">
-                <span className="block max-w-[260px] truncate font-mono text-tag text-muted">
+              <td className={`${cell} hidden sm:table-cell`}>
+                <span className="block truncate font-mono text-tag text-muted">
                   {row.currency}
                 </span>
               </td>
-              <td className="px-4 py-row text-right font-mono text-cell tabular-nums text-primary">
+              <td className={`${cell} break-words text-right font-mono text-cell tabular-nums text-primary`}>
                 {formatSupply(row.outstanding)}
               </td>
             </tr>
@@ -108,6 +95,6 @@ export default function IssuedTokens({
           label="tokens"
         />
       )}
-    </div>
+    </>
   );
 }

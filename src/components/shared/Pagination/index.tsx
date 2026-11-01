@@ -1,7 +1,6 @@
-"use client";
-
 import { useId } from "react";
-import { cn } from "@/lib/utils";
+import Button from "@/components/shared/Button";
+import PixelIcon from "@/components/shared/PixelIcon";
 
 interface PaginationProps {
   /** Current page-size value (rows per page). */
@@ -38,9 +37,9 @@ interface PaginationProps {
 
 /**
  * Pagination footer — page-size selector on the left, range label +
- * chevron prev/next on the right. Used at the bottom of a card whose
- * body is a list/table; renders its own top border + padding so callers
- * don't need to repeat the wrapper.
+ * chevron prev/next on the right. Sits under a list or table on the page
+ * ground, flush with its edges; renders its own rule above so callers
+ * don't need a wrapper.
  *
  * Originated as the inline pagination block on `TransactionList`; lifted
  * out so the Tokens and AMM listings can share the same UX. The
@@ -63,7 +62,7 @@ export default function Pagination({
   const selectId = useId();
 
   return (
-    <div className="flex flex-col items-start justify-between gap-3 border-t border-elevated px-4 py-3 sm:flex-row sm:items-center">
+    <div className="flex flex-col items-start justify-between gap-3 border-t border-line py-3 sm:flex-row sm:items-center">
       <div className="flex items-center gap-2 font-mono text-label text-muted">
         <span>Show</span>
         <label className="sr-only" htmlFor={selectId}>
@@ -73,7 +72,7 @@ export default function Pagination({
           id={selectId}
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="rounded-lg border border-elevated bg-elevated px-2 py-1 font-mono text-[16px] text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 sm:text-label"
+          className="border border-line bg-surface px-2 py-1 font-mono text-body text-primary sm:text-label"
         >
           {pageSizeOptions.map((n) => (
             <option key={n} value={n}>
@@ -89,58 +88,28 @@ export default function Pagination({
           {rangeLabel}
         </span>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
+          <Button
             onClick={onPrev}
             disabled={!canPrev}
             aria-label="Previous page"
-            className={cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-elevated bg-elevated transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
-              canPrev
-                ? "text-primary hover:bg-surface"
-                : "cursor-not-allowed text-muted/40",
-            )}
+            variant="outline"
+            size="sm"
+            iconOnly
           >
-            <ChevronIcon direction="left" />
-          </button>
-          <button
-            type="button"
+            <PixelIcon name="chevron-left" />
+          </Button>
+          <Button
             onClick={onNext}
             disabled={!canNext}
             aria-label="Next page"
-            className={cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-elevated bg-elevated transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
-              canNext
-                ? "text-primary hover:bg-surface"
-                : "cursor-not-allowed text-muted/40",
-            )}
+            variant="outline"
+            size="sm"
+            iconOnly
           >
-            <ChevronIcon direction="right" />
-          </button>
+            <PixelIcon name="chevron-right" />
+          </Button>
         </div>
       </div>
     </div>
-  );
-}
-
-function ChevronIcon({ direction }: { direction: "left" | "right" }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {direction === "left" ? (
-        <polyline points="15 18 9 12 15 6" />
-      ) : (
-        <polyline points="9 18 15 12 9 6" />
-      )}
-    </svg>
   );
 }

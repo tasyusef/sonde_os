@@ -1,13 +1,4 @@
-/**
- * Client-safe NFT name helpers — no I/O, no server-only deps.
- *
- * Mirrors the pure-function pieces of `nft-metadata-fetcher.ts` so they
- * can be imported by client components (NFTGrid, NFTHoldings, etc.)
- * without dragging in the server-only fetch machinery.
- *
- * `nft-metadata-fetcher.ts` re-exports from this file so existing
- * server-side imports keep working.
- */
+/** NFT name helpers: collection names from per-NFT names. No I/O. */
 
 /** Strip trailing "#123", " - #123", " | 123" etc. to get a collection
  *  name. Falls back to the input unchanged when no trailing index

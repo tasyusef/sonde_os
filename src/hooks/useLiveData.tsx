@@ -1,22 +1,18 @@
-"use client";
-
 /**
  * LiveDataProvider + useLiveData hook
  *
- * A single EventSource connection per browser tab.  The provider sits in the
- * root layout and broadcasts named SSE events into React context.  Any
- * component can call `useLiveData()` to read the latest live values.
+ * One live connection per browser tab: a WebSocket to the Cloudflare relay
+ * in `relay/` (`VITE_LIVE_RELAY_URL`), which sends one compact
+ * snapshot per ledger close. Without the URL nothing connects and every
+ * slice stays `null`. Tabs hidden for a while disconnect, so they don't
+ * keep downloading.
  *
- * The hook returns `null` for each data slice until the first event of that
- * type arrives, so components should fall back to their server-rendered
- * `initial*` props.
+ * The hook returns `null` for each data slice until it first arrives.
  *
- * **SSE gating.** The connection is only opened on routes that actually
- * consume live data (home, network, nft list, account pages — see
- * `SSE_ROUTES`). Token, intel, portfolio, smart-money, etc. pages get
- * the empty-context fallback; consumers there see `connected: false`
- * and rely on their server-rendered initial props. Saves an open SSE
- * stream per visit on the long tail of routes that never read it.
+ * **Route gating.** The connection is only opened on routes that actually
+ * consume live data (network and account pages — see `LIVE_ROUTE_PATTERN`).
+ * Other pages get the empty-context fallback; consumers there see
+ * `connected: false`.
  */
 
 import {
@@ -28,84 +24,92 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
-import type {
-  LedgerEvent,
-  RecentTx,
-  NetworkStats,
-  PriceData,
-} from "@/types/live-data";
-import type {
-  ServerHealth,
-  FeeInfo,
-  TxTypeDistribution,
-} from "@/types/network";
-import type { RecentMint } from "@/lib/xrpl-data";
+import { useLocation } from "react-router";
+import {
+  applySnapshot,
+  initialLiveData,
+  type LiveData,
+  type RelaySnapshot,
+} from "@/lib/live-snapshot";
 
-/* ------------------------------------------------------------------ */
-/*  Context shape                                                      */
-/* ------------------------------------------------------------------ */
+export type { LiveData };
 
-const MAX_LEDGER_HISTORY = 201; // 201 events = 200 intervals for heatmap grid
+const LiveDataContext = createContext<LiveData>(initialLiveData);
 
-export interface LiveData {
-  ledger: LedgerEvent | null;
-  /** Rolling history of the last ~35 ledger events (newest last). */
-  ledgerHistory: LedgerEvent[];
-  transactions: RecentTx[] | null;
-  txCount: number | null;
-  stats: NetworkStats | null;
-  fee: FeeInfo | null;
-  health: ServerHealth | null;
-  txDistribution: TxTypeDistribution[] | null;
-  price: PriceData | null;
-  /** Rolling buffer of the 4 most recent NFTokenMint transactions */
-  recentMints: RecentMint[] | null;
-  connected: boolean;
-}
-
-const initial: LiveData = {
-  ledger: null,
-  ledgerHistory: [],
-  transactions: null,
-  txCount: null,
-  stats: null,
-  fee: null,
-  health: null,
-  txDistribution: null,
-  price: null,
-  recentMints: null,
-  connected: false,
-};
-
-const LiveDataContext = createContext<LiveData>(initial);
+const RELAY_URL = import.meta.env.VITE_LIVE_RELAY_URL;
+const RECONNECT_MS = 3_000;
+/** No snapshot this long means the relay or its node connection stalled. */
+const RELAY_STALE_MS = 20_000;
+/** A tab hidden this long disconnects from the relay until it's shown again. */
+const HIDDEN_DISCONNECT_MS = 30_000;
 
 function safeParse<T>(data: string, label: string): T | null {
   try {
     return JSON.parse(data) as T;
   } catch {
-    console.warn(`[live-data] Failed to parse ${label} event`);
+    console.warn(`[live-data] Failed to parse ${label} event`); // audit-ok
     return null;
   }
 }
+
+// Routes that mount a `useLiveData()` consumer (network page; account
+// pages read price and reserves). Anything outside this set skips the
+// live connection entirely. Update when adding a new consumer in a
+// route family that isn't already covered.
+const LIVE_ROUTE_PATTERN = /^\/(?:network$|account\/)/;
+
+type Setter = (update: (prev: LiveData) => LiveData) => void;
+
+/** Opens the relay socket. Calls `onClosed` when it drops on its own; the
+ *  returned function closes it without triggering `onClosed`. */
+type Transport = (setData: Setter, onClosed: () => void) => () => void;
+
+const relayTransport =
+  (url: string): Transport =>
+  (setData, onClosed) => {
+    const ws = new WebSocket(url);
+    let staleTimer: ReturnType<typeof setTimeout> | null = null;
+    let closedByUs = false;
+    const armStaleTimer = () => {
+      if (staleTimer) clearTimeout(staleTimer);
+      staleTimer = setTimeout(() => ws.close(), RELAY_STALE_MS);
+    };
+
+    ws.onopen = () => {
+      setData((prev) => ({ ...prev, connected: true }));
+      armStaleTimer();
+    };
+    ws.onmessage = (e) => {
+      const snapshot = safeParse<RelaySnapshot>(String(e.data), "relay snapshot");
+      if (!snapshot) return;
+      armStaleTimer();
+      setData((prev) => applySnapshot(prev, snapshot));
+    };
+    ws.onclose = () => {
+      if (staleTimer) clearTimeout(staleTimer);
+      setData((prev) => ({ ...prev, connected: false }));
+      if (!closedByUs) onClosed();
+    };
+
+    return () => {
+      closedByUs = true;
+      ws.close();
+    };
+  };
 
 /* ------------------------------------------------------------------ */
 /*  Provider                                                           */
 /* ------------------------------------------------------------------ */
 
-// Routes that mount a `useLiveData()` consumer. Anything outside this
-// set skips the SSE connection entirely. Update when adding a new
-// consumer in a route family that isn't already covered.
-const SSE_ROUTE_PATTERN = /^\/(?:$|network$|nft(?:\/|$)|account(?:\/|$))/;
-
 export function LiveDataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<LiveData>(initial);
-  const esRef = useRef<EventSource | null>(null);
+  const [data, setData] = useState<LiveData>(initialLiveData);
+  const closeRef = useRef<(() => void) | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hiddenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
-  const pathname = usePathname() ?? "/";
+  const { pathname } = useLocation();
   const shouldConnect = useMemo(
-    () => SSE_ROUTE_PATTERN.test(pathname),
+    () => !!RELAY_URL && LIVE_ROUTE_PATTERN.test(pathname),
     [pathname],
   );
 
@@ -113,18 +117,24 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     // Reset on re-mount (React strict mode unmounts then re-mounts)
     mountedRef.current = true;
 
+    const clearTimer = (timer: typeof reconnectTimer) => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+
+    const disconnect = () => {
+      closeRef.current?.();
+      closeRef.current = null;
+      clearTimer(reconnectTimer);
+      setData((prev) => (prev.connected ? { ...prev, connected: false } : prev));
+    };
+
     if (!shouldConnect) {
       // Navigated to a route with no live-data consumers — tear down
-      // any active connection so the server stream can close.
-      if (esRef.current) {
-        esRef.current.close();
-        esRef.current = null;
-        setData((prev) => ({ ...prev, connected: false }));
-      }
-      if (reconnectTimer.current) {
-        clearTimeout(reconnectTimer.current);
-        reconnectTimer.current = null;
-      }
+      // any active connection.
+      disconnect();
       return () => {
         mountedRef.current = false;
       };
@@ -132,108 +142,35 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
 
     function connect() {
       // Don't double-connect
-      if (esRef.current) return;
-
-      const es = new EventSource("/api/stream");
-      esRef.current = es;
-
-      es.onopen = () => {
-        setData((prev) => ({ ...prev, connected: true }));
-      };
-
-      es.onerror = () => {
-        setData((prev) => ({ ...prev, connected: false }));
-        es.close();
-        esRef.current = null;
-        // Clear any pending reconnect timer to avoid stacking
-        if (reconnectTimer.current) {
-          clearTimeout(reconnectTimer.current);
-          reconnectTimer.current = null;
+      if (closeRef.current || !RELAY_URL) return;
+      closeRef.current = relayTransport(RELAY_URL)(setData, () => {
+        closeRef.current = null;
+        clearTimer(reconnectTimer);
+        // Reconnect after 3 s if still mounted and visible
+        if (mountedRef.current && !document.hidden) {
+          reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
         }
-        // Reconnect after 3 s if still mounted
-        if (mountedRef.current) {
-          reconnectTimer.current = setTimeout(() => connect(), 3_000);
-        }
-      };
-
-      /* Named event listeners — one per data slice */
-
-      es.addEventListener("ledger", (e) => {
-        const parsed = safeParse<LedgerEvent>(e.data, "ledger");
-        if (!parsed) return;
-        setData((prev) => {
-          // Deduplicate
-          if (prev.ledger?.ledger_index === parsed.ledger_index) return prev;
-          const history = [...prev.ledgerHistory, parsed].slice(
-            -MAX_LEDGER_HISTORY
-          );
-          return { ...prev, ledger: parsed, ledgerHistory: history };
-        });
-      });
-
-      es.addEventListener("transactions", (e) => {
-        const parsed = safeParse<{ txs: RecentTx[]; total: number }>(
-          e.data,
-          "transactions"
-        );
-        if (!parsed) return;
-        setData((prev) => ({
-          ...prev,
-          transactions: parsed.txs,
-          txCount: parsed.total,
-        }));
-      });
-
-      es.addEventListener("stats", (e) => {
-        const parsed = safeParse<NetworkStats>(e.data, "stats");
-        if (!parsed) return;
-        setData((prev) => ({ ...prev, stats: parsed }));
-      });
-
-      es.addEventListener("fee", (e) => {
-        const parsed = safeParse<FeeInfo>(e.data, "fee");
-        if (!parsed) return;
-        setData((prev) => ({ ...prev, fee: parsed }));
-      });
-
-      es.addEventListener("health", (e) => {
-        const parsed = safeParse<ServerHealth>(e.data, "health");
-        if (!parsed) return;
-        setData((prev) => ({ ...prev, health: parsed }));
-      });
-
-      es.addEventListener("txDistribution", (e) => {
-        const parsed = safeParse<TxTypeDistribution[]>(
-          e.data,
-          "txDistribution"
-        );
-        if (!parsed) return;
-        setData((prev) => ({ ...prev, txDistribution: parsed }));
-      });
-
-      es.addEventListener("price", (e) => {
-        const parsed = safeParse<PriceData>(e.data, "price");
-        if (!parsed) return;
-        setData((prev) => ({ ...prev, price: parsed }));
-      });
-
-      es.addEventListener("recentMints", (e) => {
-        const parsed = safeParse<RecentMint[]>(e.data, "recentMints");
-        if (!parsed) return;
-        setData((prev) => ({ ...prev, recentMints: parsed }));
       });
     }
 
+    // Hidden tabs stop downloading after a grace period.
+    const onVisibilityChange = () => {
+      clearTimer(hiddenTimer);
+      if (document.hidden) {
+        hiddenTimer.current = setTimeout(disconnect, HIDDEN_DISCONNECT_MS);
+      } else {
+        connect();
+      }
+    };
+
     connect();
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       mountedRef.current = false;
-      esRef.current?.close();
-      esRef.current = null;
-      if (reconnectTimer.current) {
-        clearTimeout(reconnectTimer.current);
-        reconnectTimer.current = null;
-      }
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      clearTimer(hiddenTimer);
+      disconnect();
     };
   }, [shouldConnect]);
 

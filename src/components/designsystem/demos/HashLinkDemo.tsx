@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { HashLink } from "@/components/shared/HashLink";
 import DemoCard from "../shared/DemoCard";
@@ -17,6 +15,8 @@ export default function HashLinkDemo() {
       importPath="@/components/shared/HashLink"
       description="Linked transaction hash with truncation. Monospace, subtle color with hover."
       preview={
+        // Swallows the link's click (mouse or Enter) so the demo doesn't navigate.
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <span onClick={(e) => e.preventDefault()}>
           <HashLink hash={EXAMPLE_HASH} truncate={truncate} chars={chars} />
         </span>

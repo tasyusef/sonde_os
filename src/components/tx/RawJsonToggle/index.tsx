@@ -1,67 +1,58 @@
-"use client";
-
 import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import Button from "@/components/shared/Button";
+import Collapse from "@/components/shared/Collapse";
+import { cn } from "@/lib/utils";
 
-type ViewMode = null | "json" | "receipt";
+type ViewMode = "json" | "receipt";
 
+const VIEWS: { value: ViewMode; label: string }[] = [
+  { value: "json", label: "Raw JSON" },
+  { value: "receipt", label: "Transaction receipt" },
+];
+
+/** Two disclosure buttons, at most one open: the full tx object or just
+ *  its meta (the receipt). Pressing the open one closes it, which a
+ *  radio `Toggle` can't do, so these are pressed buttons. */
 export default function RawJsonToggle({
   tx,
   meta,
+  className,
 }: {
   tx: Record<string, unknown>;
   meta: Record<string, unknown> | null;
+  className?: string;
 }) {
-  const [view, setView] = useState<ViewMode>(null);
-
-  // Transaction receipt = just the meta object
-  const receiptData = meta ?? {};
-  // Raw JSON = full tx object
-  const jsonData = tx;
+  // The view outlives `open`, so the box keeps its text while it closes.
+  const [view, setView] = useState<ViewMode>("json");
+  const [open, setOpen] = useState(false);
 
   return (
-    <div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setView(view === "json" ? null : "json")}
-          className={`rounded-lg border px-3 py-1.5 font-mono text-tag font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
-            view === "json"
-              ? "border-brand bg-brand/10 text-brand"
-              : "border-elevated bg-surface text-secondary hover:text-primary hover:border-primary/20"
-          }`}
-        >
-          Raw JSON
-        </button>
-        <button
-          type="button"
-          onClick={() => setView(view === "receipt" ? null : "receipt")}
-          className={`rounded-lg border px-3 py-1.5 font-mono text-tag font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
-            view === "receipt"
-              ? "border-brand bg-brand/10 text-brand"
-              : "border-elevated bg-surface text-secondary hover:text-primary hover:border-primary/20"
-          }`}
-        >
-          Transaction receipt
-        </button>
+    <div className={className}>
+      <div className="flex flex-wrap gap-2">
+        {VIEWS.map(({ value, label }) => {
+          const pressed = open && view === value;
+          return (
+            <Button
+              key={value}
+              variant="secondary"
+              size="md"
+              aria-pressed={pressed}
+              onClick={() => {
+                setView(value);
+                setOpen(!pressed);
+              }}
+              className={cn("whitespace-nowrap", pressed && "bg-primary text-black")}
+            >
+              {label}
+            </Button>
+          );
+        })}
       </div>
-      <AnimatePresence>
-        {view && (
-          <motion.pre
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="mt-3 max-h-[600px] overflow-auto rounded-2xl border border-elevated bg-surface p-4 font-mono text-cell text-secondary"
-          >
-            {JSON.stringify(
-              view === "json" ? jsonData : receiptData,
-              null,
-              2,
-            )}
-          </motion.pre>
-        )}
-      </AnimatePresence>
+      <Collapse open={open}>
+        <pre className="mt-3 max-h-150 overflow-auto border border-line p-4 font-mono text-cell text-primary">
+          {JSON.stringify(view === "json" ? tx : (meta ?? {}), null, 2)}
+        </pre>
+      </Collapse>
     </div>
   );
 }

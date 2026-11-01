@@ -1,26 +1,23 @@
-"use client";
-
 /**
- * useAccountAncestry — server-rendered ancestry first, rippled fallback.
- *
- * The account page server-fetches ancestry from CH's `value_transfer_events`
- * (filtered to `transfer_kind = 'payment'`, ordered by inbound destination).
- * When that's available it's threaded in via `initialAncestry` and we skip
- * the rippled call entirely. When it's not (CH unreachable, activation
- * predates the backfill window, or no row indexed for the address), we
- * fall back to `account_tx forward:true limit:1` — a single cheap WS
- * round-trip — and synthesize the AncestryData from the first inbound
- * Payment.
- *
- * Part of the per-tab data-ownership refactor (Tier 2). Used by ProfileTab.
+ * useAccountAncestry — who activated the account, and when: the first
+ * `account_tx` entry (`forward: true, limit: 1`), read as the
+ * activating Payment when it is one. A failed lookup is an error, not
+ * "no ancestry", so it isn't cached as an answer.
  */
 
-import useSWR from "swr";
-import { useEffect, useRef } from "react";
-import { useXrpl } from "./useXrplWs";
 import type { SendFn } from "@/lib/xrpl-pagination";
+import { deliveredDrops } from "@/lib/xrpl-helpers";
 import type { AccountTxResult } from "@/types/xrpl";
-import type { AncestryData } from "./useAccountData";
+import { useXrplQuery } from "./useXrplQuery";
+
+export interface AncestryData {
+  parentAddress: string | null;
+  activationDate: number | null;
+  fundingAmount: string | null;
+  activationHash: string | null;
+  activationLedgerIndex: number | null;
+  activationTxIndex: number | null;
+}
 
 const EMPTY_ANCESTRY: AncestryData = {
   parentAddress: null,
@@ -35,68 +32,51 @@ async function fetchAncestryFromRippled(
   address: string,
   send: SendFn,
 ): Promise<AncestryData> {
-  try {
-    const result = (await send({
-      command: "account_tx",
-      account: address,
-      ledger_index_min: -1,
-      ledger_index_max: -1,
-      forward: true,
-      limit: 1,
-    })) as AccountTxResult;
-    const firstTxs = result.transactions ?? [];
-    if (firstTxs.length === 0) return EMPTY_ANCESTRY;
-    const tx = firstTxs[0].tx;
-    const isInboundPayment =
-      tx.TransactionType === "Payment" && tx.Destination === address;
-    return {
-      parentAddress: isInboundPayment ? ((tx.Account as string) ?? null) : null,
-      activationDate: (tx.date as number) ?? null,
-      fundingAmount:
-        isInboundPayment && typeof tx.Amount === "string" ? tx.Amount : null,
-      activationHash: (tx.hash as string) ?? null,
-      activationLedgerIndex: (tx.ledger_index as number) ?? null,
-      activationTxIndex:
-        typeof tx.TransactionIndex === "number"
-          ? tx.TransactionIndex
-          : typeof (firstTxs[0].meta as Record<string, unknown>)
-                ?.TransactionIndex === "number"
-            ? ((firstTxs[0].meta as Record<string, unknown>)
-                .TransactionIndex as number)
-            : null,
-    };
-  } catch {
-    return EMPTY_ANCESTRY;
-  }
+  const result = (await send({
+    command: "account_tx",
+    account: address,
+    ledger_index_min: -1,
+    ledger_index_max: -1,
+    forward: true,
+    limit: 1,
+  })) as AccountTxResult;
+  const firstTxs = result.transactions ?? [];
+  if (firstTxs.length === 0) return EMPTY_ANCESTRY;
+  const tx = firstTxs[0].tx;
+  const isInboundPayment =
+    tx.TransactionType === "Payment" && tx.Destination === address;
+  return {
+    parentAddress: isInboundPayment ? ((tx.Account as string) ?? null) : null,
+    activationDate: (tx.date as number) ?? null,
+    fundingAmount: isInboundPayment
+      ? (deliveredDrops(tx, firstTxs[0].meta) ?? null)
+      : null,
+    activationHash: (tx.hash as string) ?? null,
+    activationLedgerIndex: (tx.ledger_index as number) ?? null,
+    activationTxIndex:
+      typeof tx.TransactionIndex === "number"
+        ? tx.TransactionIndex
+        : typeof (firstTxs[0].meta as Record<string, unknown>)
+              ?.TransactionIndex === "number"
+          ? ((firstTxs[0].meta as Record<string, unknown>)
+              .TransactionIndex as number)
+          : null,
+  };
 }
 
-export function useAccountAncestry(
-  address: string,
-  initialAncestry?: AncestryData | null,
-) {
-  const { send, connected } = useXrpl();
-  const sendRef = useRef(send);
-  useEffect(() => {
-    sendRef.current = send;
-  }, [send]);
-
-  // Server-rendered ancestry is ground truth — skip the WS call when present.
-  const shouldFetch = !initialAncestry && connected;
-
-  const { data, error, isLoading } = useSWR(
-    shouldFetch ? `account-ancestry:${address}` : null,
-    () => fetchAncestryFromRippled(address, sendRef.current),
-    {
-      dedupingInterval: 60_000,
-      keepPreviousData: true,
-      errorRetryCount: 1,
-      revalidateOnFocus: false,
-    },
+export function useAccountAncestry(address: string) {
+  // Activation never changes: fetched once per address.
+  const { data, error, isLoading, retry } = useXrplQuery<AncestryData>(
+    address ? ["account-ancestry", address] : null,
+    ({ send }) => fetchAncestryFromRippled(address, send),
+    { errorRetryCount: 1 },
   );
 
   return {
-    ancestry: initialAncestry ?? data ?? EMPTY_ANCESTRY,
-    isLoading: shouldFetch ? isLoading : false,
-    error,
+    ancestry: data ?? EMPTY_ANCESTRY,
+    isLoading,
+    /** The lookup failed and there's nothing to show. */
+    failed: !data && !!error && !isLoading,
+    retry,
   };
 }

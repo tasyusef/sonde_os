@@ -1,27 +1,32 @@
 import { clsx, type ClassValue } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 
+/** Every `--text-*` size token in globals.css. tailwind-merge only knows
+ *  Tailwind's own sizes, so it reads any other `text-*` as a colour: a
+ *  size missing here knocks out the colour beside it (`text-caps` would
+ *  drop `text-on-accent`). utils.test.ts checks the list against the CSS. */
+export const TEXT_SIZES = [
+  "micro",
+  "label",
+  "tag",
+  "caps",
+  "cell",
+  "ui",
+  "body",
+  "lg",
+  "value",
+  "heading",
+  "title",
+  "display",
+  "display-lg",
+  "figure",
+  "figure-lg",
+] as const;
+
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
-      "font-size": [
-        {
-          text: [
-            "micro",
-            "label",
-            "tag",
-            "cell",
-            "ui",
-            "body",
-            "lg",
-            "value",
-            "heading",
-            "title",
-            "display",
-            "display-lg",
-          ],
-        },
-      ],
+      "font-size": [{ text: [...TEXT_SIZES] }],
     },
   },
 });

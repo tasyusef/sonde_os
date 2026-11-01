@@ -1,22 +1,27 @@
-import { getTypeColor, hexToRgb } from "@/lib/xrpl-helpers";
+import { getTypeColorKey, type TxColorKey } from "@/lib/xrpl-helpers";
 import { cn } from "@/lib/utils";
 
-export function TypeTag({ txType, className }: { txType: string; className?: string }) {
-  const color = getTypeColor(txType);
-  const { r, g, b } = hexToRgb(color);
+/* Written out in full so Tailwind's scanner sees every class. */
+const TAG_COLORS: Record<TxColorKey, string> = {
+  payment: "tag-payment",
+  offer: "tag-offer",
+  nft: "tag-nft",
+  trust: "tag-trust",
+  amm: "tag-amm",
+  escrow: "tag-escrow",
+  account: "tag-account",
+  check: "tag-check",
+  other: "tag-other",
+};
 
+export function TypeTag({ txType, className }: { txType: string; className?: string }) {
   return (
     <span
       className={cn(
         "inline-block rounded-tag px-2 py-0.5 font-mono text-tag font-medium whitespace-nowrap",
+        TAG_COLORS[getTypeColorKey(txType)],
         className
       )}
-      style={{
-        "--tag-color": color,
-        "--tag-bg": `rgba(${r}, ${g}, ${b}, 0.10)`,
-        backgroundColor: "var(--tag-bg)",
-        color: "var(--tag-color)",
-      } as React.CSSProperties}
     >
       {txType}
     </span>

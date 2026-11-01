@@ -1,9 +1,6 @@
-"use client";
-
-import { useId, type ReactNode } from "react";
-import { motion } from "motion/react";
-import { SPRING } from "@/lib/motion";
+import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { rovingIndex } from "@/lib/roving-index";
 
 export interface ToggleOption<T extends string> {
   value: T;
@@ -14,8 +11,6 @@ interface ToggleProps<T extends string> {
   options: ToggleOption<T>[];
   active: T;
   onChange: (value: T) => void;
-  /** Override the active-item text color. Defaults to "text-brand". */
-  accentClass?: string;
   /** ARIA label for the radio group. Screen readers announce this as the
    *  group's purpose ("Time period radio group", etc.). Optional for
    *  back-compat — the default `role="radiogroup"` still announces as a
@@ -24,9 +19,10 @@ interface ToggleProps<T extends string> {
 }
 
 /**
- * Universal toggle primitive. Pill-style button group with an animated
- * active background. Use anywhere the user picks exactly one option from
- * a small set (periods, filters, payment methods, view modes, etc.).
+ * Universal toggle primitive: a row of chips, the chosen one inverted
+ * (a block of the text colour). Use anywhere the user picks exactly one
+ * option from a small set (periods, filters, payment methods, view
+ * modes, etc.).
  *
  * This is the ONLY toggle component used on the site. All toggles should
  * route through this — not custom implementations.
@@ -34,45 +30,61 @@ interface ToggleProps<T extends string> {
  * Semantics: `role="radiogroup"` wrapper + `role="radio"` items. Earlier
  * versions used `aria-pressed` which screen readers announce as N
  * independent toggle buttons rather than a single-select group.
+ *
+ * Keyboard (APG radio group): the group is one Tab stop, on the checked
+ * radio. Arrow keys (either axis) and Home/End move focus and select,
+ * wrapping at the ends.
  */
 export default function Toggle<T extends string>({
   options,
   active,
   onChange,
-  accentClass,
   ariaLabel,
 }: ToggleProps<T>) {
-  const id = useId();
-  const activeColor = accentClass ?? "text-brand";
+  const radioRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const activeIndex = options.findIndex((o) => o.value === active);
+  // Nothing checked (stale `active`) still needs a way in.
+  const tabStop = activeIndex === -1 ? 0 : activeIndex;
+
+  const handleKeyDown = (e: KeyboardEvent, index: number) => {
+    const next = rovingIndex(e.key, index, options.length, {
+      orientation: "both",
+      wrap: true,
+    });
+    if (next === null) return;
+    e.preventDefault();
+    radioRefs.current[next]?.focus();
+    if (next !== activeIndex) onChange(options[next].value);
+  };
 
   return (
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className="flex shrink-0 items-center rounded-full border border-elevated bg-elevated p-0.5"
+      className="flex shrink-0 items-center gap-1"
     >
-      {options.map((o) => (
+      {options.map((o, index) => (
         <button
           key={o.value}
+          ref={(el) => {
+            radioRefs.current[index] = el;
+          }}
           type="button"
           role="radio"
           aria-checked={active === o.value}
+          tabIndex={index === tabStop ? 0 : -1}
           onClick={() => onChange(o.value)}
+          onKeyDown={(e) => handleKeyDown(e, index)}
           className={cn(
             // Token-driven height — matches every other interactive
             // control in the shared `--ctrl-h-*` system.
-            "relative inline-flex min-h-[var(--ctrl-h-mobile)] items-center justify-center whitespace-nowrap rounded-full px-2.5 font-mono text-label font-medium uppercase tracking-pill transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 sm:min-h-[var(--ctrl-h-desktop)]",
-            active === o.value ? activeColor : "text-muted hover:text-secondary"
+            "inline-flex min-h-[var(--ctrl-h-mobile)] items-center justify-center whitespace-nowrap px-2.5 font-display text-caps uppercase sm:min-h-[var(--ctrl-h-desktop)]",
+            active === o.value
+              ? "bg-primary text-black"
+              : "text-muted hover:bg-dither-strong hover:text-primary",
           )}
         >
-          {active === o.value && (
-            <motion.div
-              layoutId={`toggle-bg-${id}`}
-              className="absolute inset-0 rounded-full bg-surface shadow-sm"
-              transition={SPRING.layout}
-            />
-          )}
-          <span className="relative z-10">{o.label}</span>
+          {o.label}
         </button>
       ))}
     </div>

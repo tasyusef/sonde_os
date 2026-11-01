@@ -1,0 +1,112 @@
+{
+  "txSummaries": [
+    {
+      "hash": "14FDB326C072F99681BA490B3F5FB38C6B75CCCCD9A1721DCDCF28C433F42BA2",
+      "type": "Payment",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "38CA2C4093616C7EBF0E30DAA264E48CB809BDFFF86D118B2D158D903364D5C2",
+      "type": "Payment",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "74ECD4164F45EEC23F3F3B720DE08E814DD553DFA66211E0D8895C24B0DF6CE0",
+      "type": "NFTokenCreateOffer",
+      "result": "tecNO_ENTRY"
+    },
+    {
+      "hash": "C214D13E40BF8811182B81582078D8B0FE4CB88F709FB16DF5F8F2BF6624A2B4",
+      "type": "Batch",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "5AF744D60AF85318C5F2C7172ABC32629E6AA482BEDE0B0AC9AADE390DA1F3F3",
+      "type": "TrustSet",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "00FFF8EA51E6D1DD4D786776B8B45C195452EE9CF88D2E20FE7B83C83AEC836D",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "01E8C2F69C8074FA393C277CC6FB29FDD7724C9FD5DFA5F447CD4D43EFD4D40E",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "03151C2A2CCAA96181D77BC9BAA919091F9147D0F06538E47A7831BE5862BB8A",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "069BFCDA570B5CEDDAF61EC2EE5AD38DC029DECB6D04010312A445E6B0D3354D",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "09DFEC94E562889A932019EE234DF50E00E7E379C423A654E866B3D6D282E90C",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "0AA9928550F401A77A53E2825663E5C6698CDFFCAE15ABF06982E65EEB166BD3",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "0B882280DEDFE0C5BD8CA90189643A0DAD33E5CCBB316DA87193DD78F3DD85C8",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "0C2839441FA8BF14C44D239412E558B566AF86226777B8789B8F4B54C7544977",
+      "type": "OfferCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "0E93111FA3412D5A8B082CCE4771F5946763D21A20E925D5D2B4F08EA776E4B8",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "0F1F3EFC1E04943209D36B4A8F96FCF5241671F6CE5D8828BC8C8A0B2179E3CC",
+      "type": "OfferCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "1009E6A4F345EE67FF969BA37BBA1C2CAB80AAB180AC61B0B11D85D96652366D",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "100F65B3A83EFBC08513CD3A82EFD3E28A9C2323B30AD9803F5F70DAAA7AA31E",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    },
+    {
+      "hash": "11403C66549C386CF52D62886E0E013231EAA2F66D2DAFDF8EBA01DFACA87AA7",
+      "type": "TicketCreate",
+      "result": "tesSUCCESS"
+    }
+  ],
+  "totalFees": "5246",
+  "stats": {
+    "ledgerIndex": "107885643",
+    "txCount": 18,
+    "closeTime": 846216840,
+    "totalCoins": "99985583932625485",
+    "baseFee": "0.00001",
+    "reserveBase": 1,
+    "reserveIncrement": 0.2
+  },
+  "health": {
+    "buildVersion": "Clio 2.8.0",
+    "loadFactor": 1,
+    "serverState": "validated",
+    "quorum": 28,
+    "completeLedgers": "32570-107885643",
+    "validatedSeq": 107885643
+  }
+}

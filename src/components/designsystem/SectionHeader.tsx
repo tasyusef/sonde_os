@@ -7,10 +7,10 @@ export default function SectionHeader({
 }) {
   return (
     <div className="mb-8">
-      <h2 className="font-display text-title font-bold tracking-[-0.5px] text-primary">
+      <h2 className="font-display text-title font-bold text-primary">
         {title}
       </h2>
-      <p className="mt-1 font-body text-body text-secondary">{subtitle}</p>
+      <p className="mt-1 font-body text-body text-primary">{subtitle}</p>
     </div>
   );
 }

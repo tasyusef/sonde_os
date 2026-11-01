@@ -1,0 +1,535 @@
+@import "tailwindcss";
+@import "./fonts/fonts.css";
+
+/* State kept as classes on <html>, set before first paint by the root's
+   prefs script, so CSS can draw it without a hydration flash. */
+@custom-variant light (&:where(.light *));
+@custom-variant rail (&:where(.sidebar-rail *));
+
+/* Theme-switched tokens use @theme (var-based) so html.light overrides work.
+   Static tokens (tx types, chart palette, fonts) use @theme inline for performance. */
+
+@theme inline {
+  /* ——— Hues ———
+     One per tx family and per status, the same in both themes. Written in
+     OKLCH so lightness and chroma mean the same for every hue. Each type
+     hue sits at lightness 0.76 and 92% of the chroma sRGB holds there, so
+     none outweighs another (offer sits at 0.8: amber only reads as amber
+     when light); account and other are near-greys. No family shares a
+     status's hue: trust is teal and check orchid, so neither reads as
+     success or error. The statuses keep their own tuning; warning is
+     amber at offer's lightness, apart from the accent's yellow.
+     Tags take them through `tag-*`; text and marks in a hue use the
+     theme's -fg, status and -mark tokens below. */
+  --color-tx-payment: oklch(0.76 0.122 244);
+  --color-tx-offer: oklch(0.8 0.152 82);
+  --color-tx-nft: oklch(0.76 0.126 294);
+  --color-tx-trust: oklch(0.76 0.119 195);
+  --color-tx-amm: oklch(0.76 0.158 350);
+  --color-tx-escrow: oklch(0.76 0.153 56);
+  --color-tx-account: oklch(0.76 0.035 257);
+  --color-tx-check: oklch(0.76 0.21 325);
+  --color-tx-other: oklch(0.76 0.015 262);
+  --color-status-success: oklch(0.739 0.115 155);
+  --color-status-error: oklch(0.731 0.167 34);
+  --color-status-warning: oklch(0.8 0.149 70);
+
+  /* ——— Font Families ———
+     Faces in src/fonts/fonts.css, both bitmap designs. Display is PARC
+     Pixel, which is caps only: it never holds case-sensitive data. Body
+     and data share Departure Mono. */
+  --font-display: "PARC Pixel", ui-monospace, monospace;
+  --font-body: "Departure Mono", "Departure Mono Fallback", ui-monospace, monospace;
+  --font-mono: "Departure Mono", "Departure Mono Fallback", ui-monospace, monospace;
+
+  /* ——— Animations ———
+     Motion runs on springs (src/lib/motion.ts). Transitions default to
+     0s, so the hover invert is instant; a utility that wants motion
+     names its own duration. */
+  --default-transition-duration: 0s;
+  /* Bouncing-dots loading indicator. Three dots staggered via
+     animation-delay (0ms / 200ms / 400ms in the component) make a
+     wave. */
+  --animate-loading-dot: loading-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes loading-dot {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.5);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes loading-dot-fade {
+  0%,
+  80%,
+  100% {
+    opacity: 0.4;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+/* Reduced motion: pulses stop and the loading dots fade instead of
+   bouncing. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
+  }
+  .animate-loading-dot {
+    animation-name: loading-dot-fade;
+  }
+}
+
+@theme {
+  /* ——— Ink Scale ———
+     Toolbox's two primitives, ink and paper, and the steps between, all
+     on the ink's warm hue (107) at next to no chroma. black is the page
+     ground. Type is two levels, as in Toolbox: full strength, and muted
+     for labels and metadata (4.9:1 on elevated). */
+  --color-black: oklch(0.176 0.006 107);
+  --color-surface: oklch(0.217 0.006 107);
+  --color-elevated: oklch(0.276 0.005 107);
+  /* Dividers and hairlines. */
+  --color-line: oklch(0.292 0.005 107);
+  --color-border: oklch(0.382 0.005 107);
+  --color-muted: oklch(0.669 0.006 107);
+  --color-primary: oklch(0.966 0.005 107);
+  --color-white: oklch(0.966 0.005 107);
+  /* The dither's ink and a card's edge (the text colour at 14%), and its
+     hover (26%). */
+  --color-rim: oklch(0.966 0.005 107 / 0.14);
+  --color-rim-strong: oklch(0.966 0.005 107 / 0.26);
+
+  /* ——— Accent (Yellow) ———
+     Means two things: the primary action and where you are. One yellow in
+     both themes: accent is the fill, brand the accent as type and marks.
+     Yellow text on paper is 1.3:1 (and any yellow dark enough to read
+     there is olive), so on the light ground what must be read takes the
+     fill instead: links when reached for. */
+  --color-accent: oklch(0.871 0.185 100);
+  --color-on-accent: oklch(0.176 0.006 107);
+  --color-brand: oklch(0.871 0.185 100);
+
+  /* ——— Text in a hue ———
+     Statuses (+/− amounts, states) and the tx families as plain text.
+     On the dark ground each is its hue. Every one reaches 4.5:1 on page,
+     surface, elevated and a hovered row in both themes, the statuses on
+     their own 0-10% tints too (src/theme-contrast.test.ts). */
+  --color-success: oklch(0.739 0.115 155);
+  --color-error: oklch(0.731 0.167 34);
+  --color-warning: oklch(0.8 0.149 70);
+  --color-on-error: oklch(0.176 0.006 107);
+  --color-tx-payment-fg: oklch(0.76 0.122 244);
+  --color-tx-offer-fg: oklch(0.8 0.152 82);
+  --color-tx-nft-fg: oklch(0.76 0.126 294);
+  --color-tx-trust-fg: oklch(0.76 0.119 195);
+  --color-tx-amm-fg: oklch(0.76 0.158 350);
+  --color-tx-escrow-fg: oklch(0.76 0.153 56);
+  --color-tx-account-fg: oklch(0.76 0.035 257);
+  --color-tx-check-fg: oklch(0.76 0.21 325);
+  --color-tx-other-fg: oklch(0.76 0.015 262);
+
+  /* ——— Marks in a hue ———
+     Statuses and tx families drawn as marks (dots, bars, candles), not
+     read as text: they need 3:1 on the ground, not 4.5, so on paper they
+     stay lighter and brighter than the text tokens. On the dark ground
+     each is its hue. Tx marks go through getTypeColor(). */
+  --color-success-mark: oklch(0.739 0.115 155);
+  --color-error-mark: oklch(0.731 0.167 34);
+  --color-tx-payment-mark: oklch(0.76 0.122 244);
+  --color-tx-offer-mark: oklch(0.8 0.152 82);
+  --color-tx-nft-mark: oklch(0.76 0.126 294);
+  --color-tx-trust-mark: oklch(0.76 0.119 195);
+  --color-tx-amm-mark: oklch(0.76 0.158 350);
+  --color-tx-escrow-mark: oklch(0.76 0.153 56);
+  --color-tx-account-mark: oklch(0.76 0.035 257);
+  --color-tx-check-mark: oklch(0.76 0.21 325);
+  --color-tx-other-mark: oklch(0.76 0.015 262);
+
+  /* ——— Interactive ——— */
+  --color-row-hover: oklch(0.966 0.005 107 / 0.06);
+
+  /* ——— Edges ———
+     No soft shadows: a card or overlay gets a hard 1px edge. Tailwind
+     inlines these values, but the colours inside are var()s, so they still
+     switch with the theme. */
+  --shadow-card: 0 0 0 1px var(--color-rim);
+  --shadow-card-hover: 0 0 0 1px var(--color-rim-strong);
+  --shadow-sm: 0 0 0 1px var(--color-border);
+  --shadow-lg: 0 0 0 1px var(--color-border);
+
+  /* ——— Type Scale ———
+     Bitmap faces are crisp where a font pixel lands on whole device
+     pixels. Departure Mono has 11 pixels to the em: 11, 22, 33 and 55
+     are crisp everywhere, 16.5 and 27.5 on 2x screens. PARC Pixel Bold
+     has 13.75: 20.625 is crisp on 2x, 27.5, 41.25 and 55 everywhere.
+     Big mono figures get their own steps (figure), since Departure is
+     wider than PARC and 41.25 is not crisp in it. PARC Pixel Regular
+     has 6.25: every small PARC label is text-caps (12.5), never bold,
+     since Bold is off its grid below 20.625.
+     Every step carries a whole-pixel line height on the 8px unit. A
+     ratio (1.6 × 11 = 17.6) leaves rows, underlines and drawn marks on
+     half pixels, which blurs them on 1x screens. */
+  --text-caps: 12.5px;
+  --text-caps--line-height: 16px;
+  --text-micro: 11px;
+  --text-micro--line-height: 16px;
+  --text-label: 11px;
+  --text-label--line-height: 16px;
+  --text-tag: 11px;
+  --text-tag--line-height: 16px;
+  --text-cell: 11px;
+  --text-cell--line-height: 16px;
+  --text-ui: 11px;
+  --text-ui--line-height: 16px;
+  --text-body: 16.5px;
+  --text-body--line-height: 24px;
+  --text-lg: 16.5px;
+  --text-lg--line-height: 24px;
+  --text-value: 22px;
+  --text-value--line-height: 32px;
+  --text-heading: 20.625px;
+  --text-heading--line-height: 24px;
+  --text-title: 27.5px;
+  --text-title--line-height: 32px;
+  --text-display: 41.25px;
+  --text-display--line-height: 48px;
+  --text-display-lg: 55px;
+  --text-display-lg--line-height: 56px;
+  --text-figure: 33px;
+  --text-figure--line-height: 40px;
+  --text-figure-lg: 55px;
+  --text-figure-lg--line-height: 56px;
+
+  /* ——— Tracking ———
+     Zero: a bitmap face's spacing is drawn in, and a fraction of a pixel
+     blurs it. */
+  --tracking-header: 0;
+  --tracking-pill: 0;
+  --tracking-nav: 0;
+  --tracking-display: 0;
+
+  /* ——— Leading ———
+     Reading paragraphs open up from their size's line height, still on
+     whole pixels: `leading-read-sm` for 11px text, `leading-read` for
+     16.5px. */
+  --leading-read-sm: 20px;
+  --leading-read: 28px;
+
+  /* ——— Row Spacing ——— */
+  --spacing-row: 12px;
+
+  /* ——— Card Header Spacing ——— */
+  --spacing-card-header: 10px;
+  --spacing-card-px: 16px;
+
+  /* The step the primary action takes when reached for (`translate-x-nudge`). */
+  --spacing-nudge: 4px;
+
+  /* ——— Border Radius ———
+     Square corners everywhere, dots and badges included: a pixel is
+     square. */
+  --radius: 0;
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+  --radius-tag: 0;
+  --radius-swatch: 0;
+  --radius-full: 0;
+
+  /* ——— Container ——— */
+  --max-width-container: 1800px;
+  /* The right column of a detail page (Toolbox's rail): the stage
+     takes the rest. */
+  --spacing-rail: 376px;
+
+  /* ——— Layout heights ——— */
+  /* The mobile header: the page column's top padding. It steps out of
+     the way as you scroll down, so nothing pins under it. Desktop has
+     no top bar (the sidebar is left-anchored), so its var stays 0. */
+  --topbar-h-mobile: 3.5rem;
+  --topbar-h-desktop: 0px;
+
+  /* ——— Interactive control heights ———
+     Single floor for Button/Toggle/Select/Input wrappers so they
+     visually align in shared rows. Mobile target (36px) matches the
+     natural input height after the iOS-anti-zoom 16px-font rule.
+     Desktop target (24px) matches Toggle's tight density.
+     Use via `min-h-[var(--ctrl-h-mobile)] sm:min-h-[var(--ctrl-h-desktop)]`. */
+  --ctrl-h-mobile: 36px;
+  --ctrl-h-desktop: 24px;
+
+  /* ——— Floating-dialog mobile inset ———
+     FAB-anchored dialogs that need to clear iOS Safari's bottom
+     chrome (~49px). Use as `bottom-[var(--floating-bottom-mobile)]`. */
+  --floating-bottom-mobile: calc(5rem + env(safe-area-inset-bottom));
+
+  /* ——— Mobile search FAB ———
+     The global Search FAB is always bottom-right on sub-md viewports:
+     `bottom-[var(--fab-search-bottom)] right-4`. The bottom offset
+     bakes in the iOS safe-area inset.   */
+  --fab-search-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+}
+
+/* Bitmap faces: no smoothing, and no faked bold or italic (Departure Mono
+   has one weight; a synthesised bold smears its pixels). */
+body {
+  background-color: var(--color-black);
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  overflow-x: hidden;
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+}
+
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-black);
+}
+
+/* ——— Dither ———
+   The bitmap system's surface, in place of soft fills: a 2px checker of
+   the text colour. Strong is the reached-for state. */
+@utility bg-dither {
+  background-image: repeating-conic-gradient(var(--color-rim) 0 25%, transparent 0 50%);
+  background-size: 4px 4px;
+}
+@utility bg-dither-strong {
+  background-image: repeating-conic-gradient(var(--color-rim-strong) 0 25%, transparent 0 50%);
+  background-size: 8px 8px;
+}
+
+/* ——— Tags ———
+   A tag in a hue: `tag-payment`, `tag-nft`, `tag-success`… On the dark
+   ground the hue is the text, over a 10% tint of itself. On paper a hue
+   that light can't be read as text, so it becomes the fill, with ink on
+   it: the same colour in both themes. */
+@utility tag-* {
+  --tag: --value(--color-tx-*, --color-status-*);
+  background-color: color-mix(in oklab, var(--tag) 10%, transparent);
+  color: var(--tag);
+  &:where(.light *) {
+    background-color: var(--tag);
+    color: var(--color-on-accent);
+  }
+}
+
+/* ——— Links ———
+   A link is underlined in its own text colour and turns the accent when
+   reached for (on paper, where yellow text can't be read, it takes the
+   accent fill), so yellow at rest stays for the primary action and where
+   you are. 4px clears
+   Departure's 3px descenders; skip-ink off keeps the line one solid run.
+   `link-quiet` (nav and footer lists) shows the underline only when
+   reached for. */
+@utility link {
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  text-decoration-skip-ink: none;
+  &:hover {
+    color: var(--color-brand);
+  }
+  &:where(.light *):hover {
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+}
+@utility link-quiet {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  text-decoration-skip-ink: none;
+  &:hover {
+    color: var(--color-primary);
+    text-decoration-color: currentColor;
+  }
+}
+
+/* ——— Focus ———
+   One keyboard focus style for the whole app; don't add per-element rings.
+   It is the text colour, so it shows on any fill, and an outline (unlike a
+   box-shadow ring) survives forced-colors mode. In @layer base so a
+   utility can adjust it: `-outline-offset-2` insets it where an overflow
+   box would clip it. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* The same ring on a wrapper, for a borderless input inside it:
+   `outline-none` on the input, `has-[input:focus-visible]:focus-ring` on
+   the wrapper. */
+@utility focus-ring {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ——— Light Mode ———
+   Token overrides only; utilities and var() pick them up. Don't add
+   `html.light .some-utility {}` rules: they sit outside Tailwind's layers,
+   so they beat every variant (hover:, disabled:, focus-visible:). */
+html.light {
+  /* Cards are paper lifted toward white; the rest steps down toward ink
+     (muted 5.5:1 on elevated). */
+  --color-black: oklch(0.966 0.005 107);
+  --color-surface: oklch(0.985 0.003 107);
+  --color-elevated: oklch(0.918 0.005 107);
+  --color-line: oklch(0.884 0.005 107);
+  --color-border: oklch(0.813 0.006 107);
+  --color-muted: oklch(0.466 0.006 107);
+  --color-primary: oklch(0.176 0.006 107);
+  --color-rim: oklch(0.176 0.006 107 / 0.14);
+  --color-rim-strong: oklch(0.176 0.006 107 / 0.26);
+  --color-row-hover: oklch(0.176 0.006 107 / 0.05);
+  /* Text in a hue drops to lightness 0.45, the most that still reads on
+     elevated with a tint, at 90% of the chroma sRGB holds there. */
+  --color-success: oklch(0.45 0.1 155);
+  --color-error: oklch(0.45 0.146 34);
+  --color-warning: oklch(0.45 0.088 70);
+  --color-on-error: oklch(0.966 0.005 107);
+  --color-tx-payment-fg: oklch(0.45 0.1 244);
+  --color-tx-offer-fg: oklch(0.45 0.084 82);
+  --color-tx-nft-fg: oklch(0.45 0.224 294);
+  --color-tx-trust-fg: oklch(0.45 0.069 195);
+  --color-tx-amm-fg: oklch(0.45 0.169 350);
+  --color-tx-escrow-fg: oklch(0.45 0.099 56);
+  --color-tx-account-fg: oklch(0.45 0.035 257);
+  --color-tx-check-fg: oklch(0.45 0.19 325);
+  --color-tx-other-fg: oklch(0.45 0.015 262);
+  /* Marks share one lightness, the most at which every hue holds 3:1
+     on paper, at 92% chroma, so none outweighs another (up and down
+     included). */
+  --color-success-mark: oklch(0.615 0.14 155);
+  --color-error-mark: oklch(0.615 0.204 34);
+  --color-tx-payment-mark: oklch(0.615 0.14 244);
+  --color-tx-offer-mark: oklch(0.615 0.117 82);
+  --color-tx-nft-mark: oklch(0.615 0.214 294);
+  --color-tx-trust-mark: oklch(0.615 0.097 195);
+  --color-tx-amm-mark: oklch(0.615 0.236 350);
+  --color-tx-escrow-mark: oklch(0.615 0.139 56);
+  --color-tx-account-mark: oklch(0.615 0.035 257);
+  --color-tx-check-mark: oklch(0.615 0.265 325);
+  --color-tx-other-mark: oklch(0.615 0.015 262);
+}
+
+/* Wide-gamut screens (P3: Macs, iPhones) hold more chroma at that
+   lightness, so text in a hue on paper gets the 90% of theirs: same
+   lightness and contrast, less mud. */
+@media (color-gamut: p3) {
+  html.light {
+    --color-success: oklch(0.45 0.139 155);
+    --color-error: oklch(0.45 0.164 34);
+    --color-warning: oklch(0.45 0.101 70);
+    --color-tx-payment-fg: oklch(0.45 0.13 244);
+    --color-tx-offer-fg: oklch(0.45 0.096 82);
+    --color-tx-nft-fg: oklch(0.45 0.231 294);
+    --color-tx-trust-fg: oklch(0.45 0.093 195);
+    --color-tx-amm-fg: oklch(0.45 0.189 350);
+    --color-tx-escrow-fg: oklch(0.45 0.113 56);
+    --color-tx-check-fg: oklch(0.45 0.206 325);
+  }
+}
+
+/* ——— Scrollbars ———
+   A square thumb in the border step on a dither track: 12px for the page,
+   8px inside it. Reached for, the thumb inverts to the text colour.
+   Blink ignores these pseudo-elements on anything with the standard
+   `scrollbar-*` properties set, so those go only to Firefox, which can't
+   draw the track: there the thumb sits on the ground. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+/* Blink draws the window's scrollbar from <body>'s style, not the root's. */
+body::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: repeating-conic-gradient(var(--color-rim) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+}
+
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background: var(--color-primary);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  *:hover {
+    scrollbar-color: var(--color-primary) transparent;
+  }
+}
+
+/* ——— Brand Scrollbar (horizontal ledger feed) ———
+   Reached for, its thumb lights to the accent. */
+.scrollbar-brand::-webkit-scrollbar-thumb:horizontal {
+  min-width: 40px;
+}
+
+.scrollbar-brand::-webkit-scrollbar-thumb:hover,
+.scrollbar-brand::-webkit-scrollbar-thumb:active {
+  background: var(--color-accent);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .scrollbar-brand:hover {
+    scrollbar-color: var(--color-accent) transparent;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   iOS auto-zoom prevention — Mobile Safari zooms in whenever a focused
+   input has font-size < 16px. Most of our inputs use --text-ui or
+   --text-cell (11px), which would trigger that zoom and force the user
+   to manually pinch-zoom out. The floor on touch widths is 16.5px, the
+   nearest size Departure Mono draws cleanly, so desktop keeps its
+   hierarchy and inputs feel native on phones.
+
+   `!important` is required because Tailwind utility classes
+   (`.text-ui`, `.text-cell`) outrank element selectors. We accept
+   the override since this is a hard accessibility/UX rule, not a
+   visual choice — and it only fires under 768px.
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: max(16.5px, 1em) !important;
+  }
+}

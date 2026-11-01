@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import Toggle from "@/components/shared/Toggle";
 import DemoCard from "../shared/DemoCard";

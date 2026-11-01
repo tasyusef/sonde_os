@@ -1,13 +1,10 @@
-"use client";
-
-import Link from "next/link";
+import { Link } from "react-router";
 import AddressLink from "@/components/shared/AddressLink";
 import AmountDisplay from "@/components/shared/AmountDisplay";
 import { decodeCurrency, truncate, XRPL_EPOCH } from "@/lib/xrpl-helpers";
+import ListNotice from "@/components/shared/ListNotice";
 import { LoadMoreFooter, usePagination } from "@/components/shared/Paginated";
-
-const thClass =
-  "px-4 py-row font-display text-label font-medium uppercase tracking-header text-muted";
+import { cell, thClass } from "@/lib/table";
 
 /** lsfSellNFToken — set on NFTokenOffer entries that are sell offers
  *  (offer to sell an NFT the creator already owns). When unset, the
@@ -54,124 +51,116 @@ export default function OutgoingNftOffersList({
 }: {
   offers: OutgoingNftOffer[];
 }) {
-  const { visible, hasMore, loadMore, showAll } = usePagination(
+  const { visible, hasMore, loadMore, showAll, listRef } = usePagination(
     offers.length,
     15,
   );
   const pageOffers = offers.slice(0, visible);
 
   if (offers.length === 0) {
-    return (
-      <div className="rounded-2xl bg-surface p-8 text-center shadow-card">
-        <p className="font-mono text-body text-muted">
-          No outgoing NFT offers
-        </p>
-      </div>
-    );
+    return <ListNotice message="No outgoing NFT offers." />;
   }
 
   return (
-    <div className="space-y-3">
-      <div className="overflow-hidden rounded-2xl bg-surface shadow-card">
-        <table className="w-full table-fixed">
-          <colgroup>
-            {/* NFT id — primary identifier, takes remaining width */}
-            <col className="w-auto" />
-            {/* Mobile: Amount + expires stacked. Desktop: Type column */}
-            <col className="w-[40%] sm:w-[14%]" />
-            {/* Amount — sm+ only */}
-            <col className="hidden sm:table-column sm:w-[24%]" />
-            {/* Expires — sm+ only */}
-            <col className="hidden sm:table-column sm:w-[18%]" />
-          </colgroup>
-          <thead>
-            <tr className="border-b border-elevated">
-              <th scope="col" className={`${thClass} text-left`}>
-                NFT
-              </th>
-              <th
-                scope="col"
-                className={`${thClass} text-right sm:text-left`}
+    <>
+      <table className="w-full table-fixed">
+        <colgroup>
+          {/* NFT id — primary identifier, takes remaining width */}
+          <col className="w-auto" />
+          {/* Mobile: Amount + expires stacked. Desktop: Type column */}
+          <col className="w-[40%] sm:w-[14%]" />
+          {/* Amount — sm+ only */}
+          <col className="hidden sm:table-column sm:w-[24%]" />
+          {/* Expires — sm+ only */}
+          <col className="hidden sm:table-column sm:w-[18%]" />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-line">
+            <th scope="col" className={`${thClass} text-left`}>
+              NFT
+            </th>
+            <th
+              scope="col"
+              className={`${thClass} text-right max-sm:pr-0 sm:text-left`}
+            >
+              <span className="sm:hidden">Amount</span>
+              <span className="hidden sm:inline">Type</span>
+            </th>
+            <th
+              scope="col"
+              className={`${thClass} hidden text-right sm:table-cell`}
+            >
+              Amount
+            </th>
+            <th
+              scope="col"
+              className={`${thClass} hidden text-right sm:table-cell`}
+            >
+              Expires
+            </th>
+          </tr>
+        </thead>
+        <tbody ref={listRef}>
+          {pageOffers.map((offer) => {
+            const isSell = (offer.Flags & LSF_SELL_NFTOKEN) !== 0;
+            const expiry = formatExpiry(offer.Expiration);
+            return (
+              <tr
+                key={offer.index}
+                className="border-b border-line last:border-b-0 hover:bg-row-hover"
               >
-                <span className="sm:hidden">Amount</span>
-                <span className="hidden sm:inline">Type</span>
-              </th>
-              <th
-                scope="col"
-                className={`${thClass} hidden text-right sm:table-cell`}
-              >
-                Amount
-              </th>
-              <th
-                scope="col"
-                className={`${thClass} hidden text-right sm:table-cell`}
-              >
-                Expires
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageOffers.map((offer) => {
-              const isSell = (offer.Flags & LSF_SELL_NFTOKEN) !== 0;
-              const expiry = formatExpiry(offer.Expiration);
-              return (
-                <tr
-                  key={offer.index}
-                  className="border-b border-elevated last:border-b-0 transition-colors hover:bg-row-hover"
-                >
-                  {/* NFT — with mobile-only type badge + destination */}
-                  <td className="px-4 py-row">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/nft/${offer.NFTokenID}`}
-                        className="font-mono text-cell font-medium text-brand transition-colors hover:text-brand-light"
-                      >
-                        {truncate(offer.NFTokenID, 6)}
-                      </Link>
-                      <span className="sm:hidden">
-                        <TypeBadge isSell={isSell} />
-                      </span>
-                    </div>
-                    {offer.Destination && (
-                      <span className="mt-0.5 block font-mono text-tag text-muted">
-                        to <AddressLink address={offer.Destination} chars={5} />
-                      </span>
-                    )}
-                  </td>
-                  {/* Mobile: amount + expires stacked. Desktop: Type */}
-                  <td className="px-4 py-row text-right sm:text-left">
-                    <span className="block sm:hidden">
-                      <NftOfferAmount amount={offer.Amount} />
-                    </span>
-                    <span className="mt-0.5 block font-mono text-tag text-muted sm:hidden">
-                      {expiry}
-                    </span>
-                    <span className="hidden sm:inline">
+                {/* NFT — with mobile-only type badge + destination */}
+                <td className={cell}>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to={`/nft/${offer.NFTokenID}`}
+                      className="font-mono text-cell font-medium link text-primary"
+                    >
+                      {truncate(offer.NFTokenID, 6)}
+                    </Link>
+                    <span className="sm:hidden">
                       <TypeBadge isSell={isSell} />
                     </span>
-                  </td>
-                  <td className="hidden px-4 py-row text-right sm:table-cell">
+                  </div>
+                  {offer.Destination && (
+                    <span className="mt-0.5 block font-mono text-tag text-muted">
+                      to <AddressLink address={offer.Destination} chars={5} />
+                    </span>
+                  )}
+                </td>
+                {/* Mobile: amount + expires stacked. Desktop: Type */}
+                <td className={`${cell} text-right max-sm:pr-0 sm:text-left`}>
+                  <span className="block sm:hidden">
                     <NftOfferAmount amount={offer.Amount} />
-                  </td>
-                  <td className="hidden px-4 py-row text-right font-mono text-cell text-muted sm:table-cell">
+                  </span>
+                  <span className="mt-0.5 block font-mono text-tag text-muted sm:hidden">
                     {expiry}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {hasMore && (
-          <LoadMoreFooter
-            visible={visible}
-            total={offers.length}
-            onLoadMore={loadMore}
-            onShowAll={showAll}
-            label="offers"
-          />
-        )}
-      </div>
-    </div>
+                  </span>
+                  <span className="hidden sm:inline">
+                    <TypeBadge isSell={isSell} />
+                  </span>
+                </td>
+                <td className={`${cell} hidden text-right sm:table-cell`}>
+                  <NftOfferAmount amount={offer.Amount} />
+                </td>
+                <td className={`${cell} hidden text-right font-mono text-cell text-muted sm:table-cell`}>
+                  {expiry}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {hasMore && (
+        <LoadMoreFooter
+          visible={visible}
+          total={offers.length}
+          onLoadMore={loadMore}
+          onShowAll={showAll}
+          label="offers"
+        />
+      )}
+    </>
   );
 }
 
@@ -179,9 +168,7 @@ function TypeBadge({ isSell }: { isSell: boolean }) {
   return (
     <span
       className={`inline-block rounded-tag px-1.5 py-0.5 font-mono text-micro font-semibold uppercase tracking-pill ${
-        isSell
-          ? "bg-error/10 text-error"
-          : "bg-success/10 text-success"
+        isSell ? "tag-error" : "tag-success"
       }`}
     >
       {isSell ? "Sell" : "Buy"}

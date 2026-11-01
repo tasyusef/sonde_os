@@ -43,7 +43,7 @@ interface AuditSection {
 
 const SKIP_DIRS = new Set([
   "node_modules",
-  ".next",
+  ".react-router",
   ".git",
   "dist",
   ".vercel",
@@ -125,22 +125,15 @@ function auditAnyTypes(): AuditSection {
 
 // 2. Console statements in production code
 function auditConsoleStatements(): AuditSection {
-  // Only check server-side files (not hooks or client components)
-  const serverFiles = srcFiles.filter((f) => {
-    if (f.includes("/hooks/")) return false;
-    // Read first line to check for "use client" directive
-    const firstLines = readLines(f).slice(0, 3).join("\n");
-    return !firstLines.includes('"use client"');
-  });
   const findings = grepFiles(
     /\bconsole\.(log|warn|error|info|debug|trace)\s*\(/,
-    serverFiles,
-    "Console statement in server code — use pino logger or remove",
-    // Exclude files that legitimately use console
-    /\/\/\s*audit-ok|logger|pino/
+    srcFiles.filter((f) => !/\.test\.tsx?$/.test(f)),
+    "Console statement — remove it or mark `// audit-ok`",
+    // Exclude lines that legitimately use console
+    /\/\/\s*audit-ok/
   );
 
-  return { name: "Console Statements (server)", severity: "warning", findings };
+  return { name: "Console Statements", severity: "warning", findings };
 }
 
 // 3. Large files (>150 lines for components, >400 for lib)
@@ -150,7 +143,7 @@ function auditLargeFiles(): AuditSection {
   for (const file of srcFiles) {
     const lines = readLines(file).length;
     const isComponent =
-      file.includes("/components/") || file.includes("/app/");
+      file.includes("/components/") || file.includes("/routes/");
     const threshold = isComponent ? 150 : 400;
 
     if (lines > threshold) {
@@ -198,28 +191,15 @@ function auditDesignSystem(): AuditSection {
     f.includes("globals.css") ||
     f.includes("tailwind") ||
     f.includes("opengraph-image") ||
-    f.includes("social-image") ||
     f.includes("/og.tsx") ||
     f.includes("apple-icon") ||
+    f.includes("brand-colors") ||
     f.includes("manifest.ts") ||
-    f.includes("mock-data") ||
     f.includes("xrpl-helpers") || // transaction type color map
     // Chart/data-viz components (Recharts/D3/canvas require inline hex + fontFamily)
     f.includes("Chart") ||
-    f.includes("GraphView") ||
     f.includes("NetworkCanvas") ||
-    f.includes("FeaturePreview") ||
-    f.includes("Treemap") ||
-    f.includes("Gauge") ||
-    f.includes("Renderer") ||
-    f.includes("AMMFeeRevenue") ||
-    f.includes("MonthlyReturns") ||
-    f.includes("IssuerAnalysis") ||
-    f.includes("TokenHolders") ||
-    // Admin dashboards (Recharts-heavy)
-    f.includes("SiteAnalytics") ||
-    f.includes("BusinessMetrics") ||
-    f.includes("AiUsageMetrics");
+    f.includes("Renderer");
 
   // Hardcoded hex colors
   findings.push(
@@ -250,12 +230,12 @@ function auditDesignSystem(): AuditSection {
     )
   );
 
-  // border-surface instead of border-elevated for dividers
+  // border-surface instead of border-line for dividers
   findings.push(
     ...grepFiles(
       /border-surface\b/,
       srcFiles,
-      "Consider `border-elevated` instead of `border-surface` for dividers"
+      "Consider `border-line` instead of `border-surface` for dividers"
     )
   );
 
@@ -352,7 +332,8 @@ function auditUnusedDeps(): AuditSection {
   const deps = Object.keys(pkgJson.dependencies || {});
 
   // Framework deps that are required without explicit imports
-  const frameworkDeps = new Set(["react-dom"]);
+  // (isbot: React Router's default server entry, used when prerendering.)
+  const frameworkDeps = new Set(["react-dom", "isbot"]);
 
   // Read all source files content once
   const allContent = [...srcFiles, ...scriptFiles]
@@ -360,8 +341,8 @@ function auditUnusedDeps(): AuditSection {
     .join("\n");
 
   // Also check config files
-  const configFiles = ["next.config.ts", "next.config.mjs", "next.config.js",
-    "eslint.config.mjs", "postcss.config.mjs", "drizzle.config.ts"]
+  const configFiles = ["vite.config.ts", "react-router.config.ts",
+    "eslint.config.mjs", "vitest.config.ts"]
     .map((f) => join(ROOT, f))
     .filter((f) => existsSync(f))
     .map((f) => readFileSync(f, "utf-8"))
@@ -416,8 +397,9 @@ function auditDeadFiles(): AuditSection {
 
     // Skip entry points and special files
     if (
-      relPath.includes("/app/") || // Next.js pages/layouts are entry points
-      relPath === "src/middleware.ts" ||
+      relPath.startsWith("src/routes") || // React Router route modules are entry points
+      relPath === "src/root.tsx" ||
+      /\.test\.tsx?$/.test(relPath) || // Vitest finds tests; nothing imports them
       relPath.endsWith(".d.ts") ||
       relPath.endsWith("globals.css") ||
       relPath.includes("/types/")

@@ -1,9 +1,30 @@
+import { isValidXAddress } from "ripple-address-codec";
+import { asciiToHex, hexToUtf8 } from "./hex";
 import type { SearchType } from "@/types/search";
 
 export const XRPL_EPOCH = 946684800; // 2000-01-01T00:00:00Z in Unix seconds
 
-/** Regex to validate an XRPL classic r-address (25–34 chars, base58 alphabet). */
-export const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,33}$/;
+/**
+ * XRPL's base58 alphabet (same 58 characters as Bitcoin's, different order).
+ * Excludes 0, O, I and l. Case-sensitive: never combine with the `i` flag.
+ */
+const XRPL_BASE58 = "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz";
+
+/**
+ * Classic r-address body: `r` + 24–33 base58 chars (25–34 total). A 25-byte
+ * payload with a 0x00 version byte encodes to at most 34 chars. Shape check
+ * only; no checksum.
+ */
+const ADDRESS_SRC = `r[${XRPL_BASE58}]{24,33}`;
+
+/** Regex to validate the shape of an XRPL classic r-address (25–34 chars, base58 alphabet). */
+export const XRPL_ADDRESS_RE = new RegExp(`^${ADDRESS_SRC}$`);
+
+/**
+ * "rAddress:12345", "rAddress DT:12345", "rAddress dt 12345". Only the `dt`
+ * keyword is case-insensitive; the address part must stay case-sensitive.
+ */
+const ADDRESS_DT_RE = new RegExp(`^(${ADDRESS_SRC})[\\s:]+(?:[dD][tT][\\s:]*)?(\\d+)$`);
 
 export function dropsToXrp(drops: string | number): string {
   try {
@@ -22,6 +43,42 @@ export function dropsToXrp(drops: string | number): string {
   }
 }
 
+const TF_PARTIAL_PAYMENT = 0x00020000;
+
+/** The tx and meta fields `deliveredAmount` reads. */
+interface DeliveryTx {
+  TransactionType?: unknown;
+  Amount?: unknown;
+  DeliverMax?: unknown;
+  Flags?: unknown;
+}
+interface DeliveryMeta {
+  delivered_amount?: unknown;
+  DeliveredAmount?: unknown;
+}
+
+/**
+ * What a tx actually moved. A Payment's `Amount` is only its ceiling: with
+ * tfPartialPayment it can deliver far less, and trusting `Amount` is the
+ * classic partial-payment exploit. Prefers the delivered amount, else
+ * `Amount` (`DeliverMax` in API v2) for types and failures that have none.
+ * Undefined when a partial payment's delivery is unknown: pre-2014
+ * "unavailable", or no meta.
+ */
+export function deliveredAmount(tx: DeliveryTx, meta: DeliveryMeta | undefined): unknown {
+  const delivered = meta?.delivered_amount ?? meta?.DeliveredAmount;
+  if (delivered !== undefined && delivered !== "unavailable") return delivered;
+  const flags = typeof tx.Flags === "number" ? tx.Flags : 0;
+  if (tx.TransactionType === "Payment" && (flags & TF_PARTIAL_PAYMENT) !== 0) return undefined;
+  return tx.Amount ?? tx.DeliverMax;
+}
+
+/** `deliveredAmount` in XRP drops; undefined for issued tokens. */
+export function deliveredDrops(tx: DeliveryTx, meta: DeliveryMeta | undefined): string | undefined {
+  const amount = deliveredAmount(tx, meta);
+  return typeof amount === "string" ? amount : undefined;
+}
+
 export function truncate(str: string, chars = 5): string {
   if (str.length <= chars * 2 + 3) return str;
   return `${str.slice(0, chars)}...${str.slice(-chars)}`;
@@ -38,20 +95,17 @@ export function detectSearchType(input: string): SearchType {
   if (/^\d+$/.test(trimmed)) return "ledger";
 
   // Account + destination tag: "rAddress:12345", "rAddress DT:12345", "rAddress dt 12345"
-  if (/^r[1-9A-HJ-NP-Za-km-z]{24,33}[\s:]+(?:dt[\s:]*)?(\d+)$/i.test(trimmed))
-    return "account-dt";
+  if (ADDRESS_DT_RE.test(trimmed)) return "account-dt";
 
-  // Classic r-address (base58check validated)
+  // Classic r-address (alphabet + length only, no checksum)
   if (XRPL_ADDRESS_RE.test(trimmed)) return "account";
 
-  // X-address (46 chars starting with X)
-  if (trimmed.startsWith("X") && trimmed.length === 46) return "x-address";
+  // Mainnet X-address (XLS-5d, 47 chars, "X" prefix), checksum-validated.
+  // Testnet X-addresses ("T" prefix) are rejected: this is a mainnet explorer.
+  if (trimmed.startsWith("X") && isValidXAddress(trimmed)) return "x-address";
 
   // CTID: 16-char hex starting with C (Compact Transaction ID)
   if (/^C[0-9A-Fa-f]{15}$/i.test(trimmed)) return "ctid";
-
-  // 40-char hex → currency hash (non-standard currency code)
-  if (/^[A-Fa-f0-9]{40}$/.test(trimmed)) return "currency-hash";
 
   // 64-char hex → ambiguous (NFT ID, tx hash, or ledger object)
   if (/^[A-Fa-f0-9]{64}$/.test(trimmed)) return "hex64";
@@ -59,9 +113,6 @@ export function detectSearchType(input: string): SearchType {
   // PayString format: user$domain.com
   if (/^[^$]+\$[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed))
     return "paystring";
-
-  // 3-char uppercase alphabetic → standard currency code (USD, EUR, etc.)
-  if (/^[A-Z]{3}$/.test(trimmed)) return "currency-code";
 
   return "unknown";
 }
@@ -71,54 +122,69 @@ export function detectSearchType(input: string): SearchType {
  * Returns null if the input doesn't match the account-dt pattern.
  */
 export function parseAddressDT(input: string): { address: string; dt: number } | null {
-  const match = input.trim().match(/^(r[1-9A-HJ-NP-Za-km-z]{24,33})[\s:]+(?:dt[\s:]*)?(\d+)$/i);
+  const match = input.trim().match(ADDRESS_DT_RE);
   if (!match) return null;
   const dt = parseInt(match[2], 10);
   if (!Number.isFinite(dt) || dt < 0 || dt > 4294967295) return null;
   return { address: match[1], dt };
 }
 
-const TYPE_COLOR_MAP: Record<string, string> = {
-  Payment: "#6CB4EE",
-  OfferCreate: "#E8B44C",
-  OfferCancel: "#E8B44C",
-  NFTokenMint: "#A78BFA",
-  NFTokenBurn: "#A78BFA",
-  NFTokenCreateOffer: "#A78BFA",
-  NFTokenAcceptOffer: "#A78BFA",
-  NFTokenCancelOffer: "#A78BFA",
-  TrustSet: "#4ADE80",
-  AMMCreate: "#F472B6",
-  AMMDeposit: "#F472B6",
-  AMMWithdraw: "#F472B6",
-  AMMVote: "#F472B6",
-  AMMBid: "#F472B6",
-  AMMDelete: "#F472B6",
-  EscrowCreate: "#FB923C",
-  EscrowFinish: "#FB923C",
-  EscrowCancel: "#FB923C",
-  AccountSet: "#94A3B8",
-  AccountDelete: "#94A3B8",
-  SetRegularKey: "#94A3B8",
-  SignerListSet: "#94A3B8",
-  CheckCreate: "#F87171",
-  CheckCash: "#F87171",
-  CheckCancel: "#F87171",
-  PaymentChannelCreate: "#F87171",
-  PaymentChannelClaim: "#F87171",
-  PaymentChannelFund: "#F87171",
-  DepositPreauth: "#94A3B8",
-  DIDSet: "#94A3B8",
-  DIDDelete: "#94A3B8",
-  Clawback: "#94A3B8",
-  OracleSet: "#94A3B8",
-  OracleDelete: "#94A3B8",
-  XChainCreateBridge: "#94A3B8",
-  XChainCreateClaimID: "#94A3B8",
-  XChainCommit: "#94A3B8",
-  XChainClaim: "#94A3B8",
-  XChainModifyBridge: "#94A3B8",
-  XChainAccountCreateCommit: "#94A3B8",
+/** Colour families for tx types. Each one has a `--color-tx-<key>` hue, a
+ *  `-fg` text token and a `-mark` token in globals.css. */
+export const TX_COLOR_KEYS = [
+  "payment",
+  "offer",
+  "nft",
+  "trust",
+  "amm",
+  "escrow",
+  "account",
+  "check",
+  "other",
+] as const;
+export type TxColorKey = (typeof TX_COLOR_KEYS)[number];
+
+const TYPE_COLOR_KEY: Record<string, TxColorKey> = {
+  Payment: "payment",
+  OfferCreate: "offer",
+  OfferCancel: "offer",
+  NFTokenMint: "nft",
+  NFTokenBurn: "nft",
+  NFTokenCreateOffer: "nft",
+  NFTokenAcceptOffer: "nft",
+  NFTokenCancelOffer: "nft",
+  TrustSet: "trust",
+  AMMCreate: "amm",
+  AMMDeposit: "amm",
+  AMMWithdraw: "amm",
+  AMMVote: "amm",
+  AMMBid: "amm",
+  AMMDelete: "amm",
+  EscrowCreate: "escrow",
+  EscrowFinish: "escrow",
+  EscrowCancel: "escrow",
+  AccountSet: "account",
+  AccountDelete: "account",
+  SetRegularKey: "account",
+  SignerListSet: "account",
+  CheckCreate: "check",
+  CheckCash: "check",
+  CheckCancel: "check",
+  PaymentChannelCreate: "check",
+  PaymentChannelClaim: "check",
+  PaymentChannelFund: "check",
+  DepositPreauth: "account",
+  DIDSet: "account",
+  DIDDelete: "account",
+  Clawback: "account",
+  OracleSet: "account",
+  OracleDelete: "account",
+  XChainCreateBridge: "account",
+  XChainCreateClaimID: "account",
+  XChainCommit: "account",
+  XChainClaim: "account",
+  XChainModifyBridge: "account",
+  XChainAccountCreateCommit: "account",
 };
 
 const TYPE_FAMILY_MAP: Record<string, string> = {
@@ -164,21 +230,34 @@ const TYPE_FAMILY_MAP: Record<string, string> = {
   XChainAccountCreateCommit: "Cross-Chain",
 };
 
+export function getTypeColorKey(txType: string): TxColorKey {
+  return TYPE_COLOR_KEY[txType] ?? "other";
+}
+
+/** Each family's `-mark` token. Written out in full: Tailwind only emits
+ *  a theme variable it finds by name, so a name built from a template
+ *  ships unset on the dark ground. */
+const TX_MARKS: Record<TxColorKey, string> = {
+  payment: "var(--color-tx-payment-mark)",
+  offer: "var(--color-tx-offer-mark)",
+  nft: "var(--color-tx-nft-mark)",
+  trust: "var(--color-tx-trust-mark)",
+  amm: "var(--color-tx-amm-mark)",
+  escrow: "var(--color-tx-escrow-mark)",
+  account: "var(--color-tx-account-mark)",
+  check: "var(--color-tx-check-mark)",
+  other: "var(--color-tx-other-mark)",
+};
+
+/** The type's colour as a mark (dots, bars), for inline styles: its
+ *  `-mark` token, which switches with the theme. Not for text: use
+ *  `TypeTag` (or the `-fg` token) there. */
 export function getTypeColor(txType: string): string {
-  return TYPE_COLOR_MAP[txType] ?? "#6B7280";
+  return TX_MARKS[getTypeColorKey(txType)];
 }
 
 export function getTypeFamily(txType: string): string {
   return TYPE_FAMILY_MAP[txType] ?? "Other";
-}
-
-export function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const h = hex.replace("#", "");
-  return {
-    r: parseInt(h.slice(0, 2), 16),
-    g: parseInt(h.slice(2, 4), 16),
-    b: parseInt(h.slice(4, 6), 16),
-  };
 }
 
 export function formatDate(rippleTime: number): string {
@@ -212,20 +291,10 @@ export function formatDateCompact(rippleTime: number): string {
   }).format(d);
 }
 
-export function formatCompactNumber(n: number): string {
-  if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`;
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
-  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
 export function decodeCurrency(currency: string): string {
   if (currency.length <= 3) return currency;
   try {
-    const decoded = Buffer.from(currency, "hex")
-      .toString("utf8")
-      .replace(/\0/g, "");
+    const decoded = hexToUtf8(currency).replace(/\0/g, "");
     // Filter out non-printable ASCII characters; fall back to raw hex if empty
     const cleaned = decoded.replace(/[^\x20-\x7E]/g, "").trim();
     return cleaned || currency;
@@ -261,10 +330,7 @@ export function toLedgerCurrency(input: string): string {
   if (input.length <= 3) return input;
   // 4–20 char printable ASCII → hex-encode + zero-pad to 40.
   if (input.length <= 20 && /^[\x20-\x7E]+$/.test(input)) {
-    return Buffer.from(input, "ascii")
-      .toString("hex")
-      .toUpperCase()
-      .padEnd(40, "0");
+    return asciiToHex(input).padEnd(40, "0");
   }
   // Anything else: pass through (caller decides).
   return input;

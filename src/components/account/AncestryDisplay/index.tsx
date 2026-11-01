@@ -1,11 +1,14 @@
-import Link from "next/link";
+import { Link } from "react-router";
 import AddressLink from "@/components/shared/AddressLink";
 import HashLink from "@/components/shared/HashLink";
 import AmountDisplay from "@/components/shared/AmountDisplay";
 import CopyButton from "@/components/shared/CopyButton";
+import Facts, { Fact } from "@/components/shared/Facts";
 import InfoTip from "@/components/shared/InfoTip";
+import ListNotice from "@/components/shared/ListNotice";
+import Section from "@/components/shared/Section";
 import { formatDate, XRPL_EPOCH } from "@/lib/xrpl-helpers";
-import type { AncestryData } from "@/hooks/useAccountData";
+import type { AncestryData } from "@/hooks/useAccountAncestry";
 import type { AccountSettings } from "@/types/xrpl";
 
 /* ------------------------------------------------------------------ */
@@ -82,45 +85,18 @@ function formatAge(rippleTime: number): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Detail row                                                         */
-/* ------------------------------------------------------------------ */
-
-/** Mobile-first row. On narrow viewports the long values (full
- *  addresses, 64-char tx hashes, hex CTIDs) overflowed the right side
- *  of the card. Stacked layout below sm; horizontal label/value at sm+. */
-function Row({
-  label,
-  labelTip,
-  children,
-}: {
-  label: string;
-  /** Optional InfoTip content rendered next to the label. */
-  labelTip?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1 border-b border-elevated px-4 py-2.5 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-      <span className="flex shrink-0 items-center gap-1 font-display text-label font-medium uppercase tracking-header text-muted">
-        {label}
-        {labelTip && <InfoTip>{labelTip}</InfoTip>}
-      </span>
-      <span className="min-w-0 break-all font-mono text-cell text-primary sm:text-right">
-        {children}
-      </span>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
 export default function AncestryDisplay({
   ancestry,
   accountSettings,
+  onRetry,
 }: {
   ancestry: AncestryData;
   accountSettings: AccountSettings;
+  /** Set when the activation lookup failed: Origin shows an error. */
+  onRetry?: () => void;
 }) {
   const activeFlags = decodeFlags(accountSettings.flags);
   const domain = accountSettings.domain ? decodeDomain(accountSettings.domain) : null;
@@ -140,22 +116,15 @@ export default function AncestryDisplay({
     : null;
 
   return (
-    <div className="space-y-6">
-      {/* Activation / Origin */}
-      <div className="overflow-hidden rounded-2xl shadow-card bg-surface">
-        <div className="border-b border-elevated px-4 py-2">
-          <span className="font-display text-label font-medium uppercase tracking-header text-muted">
-            Origin
-          </span>
-        </div>
-
+    <div className="space-y-12">
+      <Section title="Origin">
         {ancestry.parentAddress ? (
-          <>
-            <Row label="Activated By">
+          <Facts>
+            <Fact label="Activated By">
               <AddressLink address={ancestry.parentAddress} truncate={false} />
-            </Row>
+            </Fact>
             {ancestry.activationDate != null && (
-              <Row label="Activation Date">
+              <Fact label="Activation Date">
                 <span className="flex items-center justify-end gap-2">
                   {formatDate(ancestry.activationDate)}
                   {ageDisplay && (
@@ -164,127 +133,128 @@ export default function AncestryDisplay({
                     </span>
                   )}
                 </span>
-              </Row>
+              </Fact>
             )}
             {ancestry.fundingAmount && (
-              <Row label="Funding Amount">
+              <Fact label="Funding Amount">
                 <AmountDisplay drops={ancestry.fundingAmount} />
-              </Row>
+              </Fact>
             )}
             {ancestry.activationHash && (
-              <Row label="Activation Tx">
+              <Fact label="Activation Tx">
                 <HashLink hash={ancestry.activationHash} truncate={false} />
-              </Row>
+              </Fact>
             )}
             {activationCTID && (
-              <Row label="Activation CTID">
+              <Fact label="Activation CTID">
                 <span className="flex items-center justify-end gap-2">
                   <span className="text-muted">{activationCTID}</span>
                   <CopyButton text={activationCTID} />
                 </span>
-              </Row>
+              </Fact>
             )}
             {ancestry.activationLedgerIndex != null && (
-              <Row label="Activation Ledger">
+              <Fact label="Activation Ledger">
                 <Link
-                  href={`/ledger/${ancestry.activationLedgerIndex}`}
-                  className="text-brand transition-colors hover:text-brand-light"
+                  to={`/ledger/${ancestry.activationLedgerIndex}`}
+                  className="link text-primary"
                 >
                   {ancestry.activationLedgerIndex.toLocaleString()}
                 </Link>
-              </Row>
+              </Fact>
             )}
-          </>
+          </Facts>
+        ) : onRetry ? (
+          <ListNotice
+            tone="error"
+            message="Couldn't look up who activated this account."
+            action={{ label: "Try again", onClick: onRetry }}
+          />
         ) : (
-          <div className="px-4 py-6 text-center">
-            <p className="font-mono text-body text-muted">Ancestry data unavailable</p>
-          </div>
+          <ListNotice message="Ancestry data unavailable." />
         )}
-      </div>
+      </Section>
 
-      {/* Account Root */}
-      <div className="overflow-hidden rounded-2xl shadow-card bg-surface">
-        <div className="border-b border-elevated px-4 py-2">
-          <span className="font-display text-label font-medium uppercase tracking-header text-muted">
-            Account Root
-          </span>
-        </div>
-
-        {accountSettings.regularKey && (
-          <Row label="Regular Key">
-            <AddressLink address={accountSettings.regularKey} truncate={false} />
-          </Row>
-        )}
-
-        {domain && (
-          <Row label="Domain">
-            <a
-              href={`https://${domain}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-brand transition-colors hover:text-brand-light"
-            >
-              {domain}
-            </a>
-          </Row>
-        )}
-
-        {transferRate && (
-          <Row label="Transfer Rate">
-            {transferRate}
-          </Row>
-        )}
-
-        {accountSettings.tickSize != null && accountSettings.tickSize > 0 && (
-          <Row label="Tick Size">
-            {accountSettings.tickSize}
-          </Row>
-        )}
-
-        {accountSettings.nfTokenMinter && (
-          <Row
-            label="Authorized Minter"
-            labelTip={
-              <>
-                Account authorized to mint NFTs on this account&apos;s
-                behalf. NFTs created by the delegate carry this account
-                as the issuer.
-              </>
-            }
-          >
-            <AddressLink address={accountSettings.nfTokenMinter} truncate={false} />
-          </Row>
-        )}
-
-        {(accountSettings.mintedNFTokens ?? 0) > 0 && (
-          <Row label="Minted NFTs">
-            {accountSettings.mintedNFTokens?.toLocaleString()}
-          </Row>
-        )}
-
-        {(accountSettings.burnedNFTokens ?? 0) > 0 && (
-          <Row label="Burned NFTs">
-            {accountSettings.burnedNFTokens?.toLocaleString()}
-          </Row>
-        )}
-
-        <Row label="Account Flags">
-          {activeFlags.length > 0 ? (
-            <div className="flex flex-wrap justify-end gap-1.5">
-              {activeFlags.map((flag) => (
-                <span
-                  key={flag}
-                  className="rounded-tag bg-elevated px-1.5 py-0.5 text-tag font-medium text-secondary"
-                >
-                  {flag}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="text-muted">None</span>
+      <Section title="Account Root">
+        <Facts>
+          {accountSettings.regularKey && (
+            <Fact label="Regular Key">
+              <AddressLink address={accountSettings.regularKey} truncate={false} />
+            </Fact>
           )}
-        </Row>
-      </div>
+
+          {domain && (
+            <Fact label="Domain">
+              <a
+                href={`https://${domain}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="link text-primary"
+              >
+                {domain}
+              </a>
+            </Fact>
+          )}
+
+          {transferRate && (
+            <Fact label="Transfer Rate">
+              {transferRate}
+            </Fact>
+          )}
+
+          {accountSettings.tickSize != null && accountSettings.tickSize > 0 && (
+            <Fact label="Tick Size">
+              {accountSettings.tickSize}
+            </Fact>
+          )}
+
+          {accountSettings.nfTokenMinter && (
+            <Fact
+              label={
+                <span className="inline-flex items-center gap-1">
+                  Authorized Minter
+                  <InfoTip>
+                    Account authorized to mint NFTs on this account&apos;s
+                    behalf. NFTs created by the delegate carry this account
+                    as the issuer.
+                  </InfoTip>
+                </span>
+              }
+            >
+              <AddressLink address={accountSettings.nfTokenMinter} truncate={false} />
+            </Fact>
+          )}
+
+          {(accountSettings.mintedNFTokens ?? 0) > 0 && (
+            <Fact label="Minted NFTs">
+              {accountSettings.mintedNFTokens?.toLocaleString()}
+            </Fact>
+          )}
+
+          {(accountSettings.burnedNFTokens ?? 0) > 0 && (
+            <Fact label="Burned NFTs">
+              {accountSettings.burnedNFTokens?.toLocaleString()}
+            </Fact>
+          )}
+
+          <Fact label="Account Flags">
+            {activeFlags.length > 0 ? (
+              <div className="flex flex-wrap justify-end gap-1.5">
+                {activeFlags.map((flag) => (
+                  <span
+                    key={flag}
+                    className="rounded-tag bg-elevated px-1.5 py-0.5 text-tag font-medium text-primary"
+                  >
+                    {flag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="text-muted">None</span>
+            )}
+          </Fact>
+        </Facts>
+      </Section>
     </div>
   );
 }

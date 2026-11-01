@@ -1,30 +1,30 @@
-"use client";
-
+import { TypeTag } from "@/components/shared/TypeTag";
 import SectionHeader from "./SectionHeader";
 import SwatchCard from "./shared/SwatchCard";
 
-const slateScale = [
+const inkScale = [
   { name: "black", variable: "--color-black" },
   { name: "surface", variable: "--color-surface" },
   { name: "elevated", variable: "--color-elevated" },
+  { name: "line", variable: "--color-line" },
   { name: "border", variable: "--color-border" },
   { name: "muted", variable: "--color-muted" },
-  { name: "secondary", variable: "--color-secondary" },
   { name: "primary", variable: "--color-primary" },
   { name: "white", variable: "--color-white" },
 ];
 
 const brandColors = [
+  { name: "accent", variable: "--color-accent" },
+  { name: "on-accent", variable: "--color-on-accent" },
   { name: "brand", variable: "--color-brand" },
-  { name: "brand-light", variable: "--color-brand-light" },
-  { name: "brand-deep", variable: "--color-brand-deep" },
-  { name: "brand-on-light", variable: "--color-brand-on-light" },
 ];
 
 const semanticColors = [
   { name: "success", variable: "--color-success" },
   { name: "error", variable: "--color-error" },
   { name: "warning", variable: "--color-warning" },
+  { name: "success-mark", variable: "--color-success-mark" },
+  { name: "error-mark", variable: "--color-error-mark" },
 ];
 
 const txColors = [
@@ -36,11 +36,12 @@ const txColors = [
   { name: "tx-escrow", variable: "--color-tx-escrow", type: "EscrowCreate" },
   { name: "tx-account", variable: "--color-tx-account", type: "AccountSet" },
   { name: "tx-check", variable: "--color-tx-check", type: "CheckCreate" },
+  { name: "tx-other", variable: "--color-tx-other", type: "TicketCreate" },
 ];
 
 function SubsectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="mb-4 font-display text-tag uppercase tracking-header text-muted">
+    <h3 className="mb-4 font-display text-caps uppercase tracking-header text-muted">
       {children}
     </h3>
   );
@@ -55,11 +56,11 @@ export default function ColorSection() {
       />
 
       <div className="space-y-10">
-        {/* Slate Scale */}
+        {/* Ink Scale */}
         <div>
-          <SubsectionLabel>Slate Scale</SubsectionLabel>
+          <SubsectionLabel>Ink Scale</SubsectionLabel>
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-5 lg:grid-cols-9">
-            {slateScale.map((c) => (
+            {inkScale.map((c) => (
               <SwatchCard key={c.name} name={c.name} variable={c.variable} />
             ))}
           </div>
@@ -67,7 +68,7 @@ export default function ColorSection() {
 
         {/* Brand */}
         <div>
-          <SubsectionLabel>Brand (Salmon)</SubsectionLabel>
+          <SubsectionLabel>Accent (Yellow)</SubsectionLabel>
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
             {brandColors.map((c) => (
               <SwatchCard key={c.name} name={c.name} variable={c.variable} />
@@ -88,23 +89,15 @@ export default function ColorSection() {
         {/* Transaction Types */}
         <div>
           <SubsectionLabel>Transaction Types</SubsectionLabel>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-9">
             {txColors.map((c) => (
               <div key={c.name} className="space-y-2">
                 <div
-                  className="h-16 w-full rounded-lg border border-elevated"
+                  className="h-16 w-full rounded-lg border border-line"
                   style={{ backgroundColor: `var(${c.variable})` }}
                 />
                 <p className="font-mono text-cell font-medium text-primary">{c.name}</p>
-                <span
-                  className="inline-block rounded-tag px-2 py-0.5 font-mono text-tag font-medium"
-                  style={{
-                    backgroundColor: `color-mix(in srgb, var(${c.variable}) 10%, transparent)`,
-                    color: `var(${c.variable})`,
-                  }}
-                >
-                  {c.type}
-                </span>
+                <TypeTag txType={c.type} />
               </div>
             ))}
           </div>

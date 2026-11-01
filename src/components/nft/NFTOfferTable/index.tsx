@@ -1,6 +1,9 @@
 import { type NFTOffer } from "@/types/nft";
 import { dropsToXrp, truncateHash, decodeCurrency } from "@/lib/xrpl-helpers";
 import AddressLink from "@/components/shared/AddressLink";
+import { LoadMoreFooter, usePagination } from "@/components/shared/Paginated";
+import Section from "@/components/shared/Section";
+import { cell, thClass } from "@/lib/table";
 
 function formatOfferAmount(amount: NFTOffer["amount"]): string {
   if (typeof amount === "string") {
@@ -9,111 +12,127 @@ function formatOfferAmount(amount: NFTOffer["amount"]): string {
   return `${parseFloat(amount.value).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${decodeCurrency(amount.currency)}`;
 }
 
-const thClass =
-  "px-4 py-row font-display text-label font-medium uppercase tracking-header text-muted";
-
 /**
- * Offer table for the NFT detail page. Mobile-first per CLAUDE.md
- * design rule: `table-fixed` + `<colgroup>` so column widths are
- * predictable, and the desktop-only Destination column collapses
- * inline under Owner on mobile (vs. just disappearing). Same pattern
- * as `HoldingsList` and `ActivationsList`.
+ * Every open offer on the NFT in one full-width table, sells first, so
+ * a single offer on one side never sits alone in half the page.
+ * Mobile-first per CLAUDE.md design rule: `table-fixed` + `<colgroup>`
+ * for predictable widths. Pattern matches `NFTHistoryTable`:
  *
- * Pre-redesign the table was wrapped in `overflow-x-auto`, which
- * meant long offer IDs / addresses pushed the table past viewport
- * width and the user got a horizontal scroll — exactly the
- * "Don't ship a 4+-column table that just overflows on phones"
- * anti-pattern the design rule prohibits.
+ *   Mobile (<sm): Side (+ Owner → Destination) | Amount (+ Offer ID)
+ *   sm+:          Side | Owner (+ → Destination) | Amount | Offer ID
+ *
+ * Destination is set on few offers, so it folds under Owner instead of
+ * holding a mostly-empty column. Shows 15 rows, then Load More.
  */
 export default function NFTOfferTable({
-  offers,
-  type,
+  sell,
+  buy,
+  note,
+  className,
 }: {
-  offers: NFTOffer[];
-  type: "buy" | "sell";
+  sell: NFTOffer[];
+  buy: NFTOffer[];
+  /** A caveat under the table, e.g. that a side was cut off. */
+  note?: string | null;
+  className?: string;
 }) {
-  const title = type === "buy" ? "Buy Offers" : "Sell Offers";
+  const rows = [
+    ...sell.map((offer) => ({ side: "Sell", offer })),
+    ...buy.map((offer) => ({ side: "Buy", offer })),
+  ];
+  const { visible, hasMore, loadMore, showAll, listRef } = usePagination(rows.length);
 
-  // No active offers → render nothing. The empty-state placeholder
-  // is just visual noise — most NFTs have no active offer on either
-  // side at any given time, so showing two empty "No buy offers" /
-  // "No sell offers" cards by default added a card-row's worth of
-  // dead space to every detail page.
-  if (offers.length === 0) return null;
+  if (rows.length === 0) {
+    return (
+      <Section title="Offers" note={note} className={className}>
+        <p className="font-mono text-cell text-muted">No open offers found.</p>
+      </Section>
+    );
+  }
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-surface shadow-card">
-      <div className="border-b border-elevated px-4 py-card-header">
-        <span className="font-display text-label font-bold uppercase tracking-header text-brand">
-          {title}
-          <span className="ml-2 text-muted">{offers.length}</span>
-        </span>
-      </div>
+    <Section title="Offers" count={rows.length} note={note} className={className}>
       <table className="w-full table-fixed">
         <colgroup>
-          {/* Offer ID is compact-truncated, Owner takes the flex
-               space + carries the mobile-folded Destination below
-               the address, Amount is right-aligned and fixed-width.
-               Destination is its own column on md+ only. */}
-          <col className="w-[24%] sm:w-[18%]" />
-          <col className="w-auto" />
-          <col className="w-[28%] sm:w-[22%]" />
-          <col className="hidden md:table-column md:w-[22%]" />
+          <col className="w-auto sm:w-24" />
+          <col className="hidden sm:table-column sm:w-auto" />
+          <col className="w-[40%] sm:w-[24%]" />
+          <col className="hidden sm:table-column sm:w-[24%]" />
         </colgroup>
         <thead>
-          <tr className="border-b border-elevated">
+          <tr className="border-b border-line">
             <th scope="col" className={`${thClass} text-left`}>
-              Offer ID
+              Side
             </th>
-            <th scope="col" className={`${thClass} text-left`}>
+            <th scope="col" className={`${thClass} hidden text-left sm:table-cell`}>
               Owner
             </th>
-            <th scope="col" className={`${thClass} text-right`}>
+            <th scope="col" className={`${thClass} text-right max-sm:pr-0`}>
               Amount
             </th>
-            <th
-              scope="col"
-              className={`${thClass} hidden text-left md:table-cell`}
-            >
-              Destination
+            <th scope="col" className={`${thClass} hidden text-left sm:table-cell`}>
+              Offer ID
             </th>
           </tr>
         </thead>
-        <tbody>
-          {offers.map((offer) => (
+        <tbody ref={listRef}>
+          {rows.slice(0, visible).map(({ side, offer }) => (
             <tr
               key={offer.nft_offer_index}
-              className="border-b border-elevated transition-colors last:border-b-0 hover:bg-row-hover"
+              className="border-b border-line last:border-b-0 hover:bg-row-hover"
             >
-              <td className="px-4 py-row font-mono text-cell text-muted">
-                {truncateHash(offer.nft_offer_index, 6)}
+              <td className={`${cell} align-top`}>
+                <span className="font-display text-caps uppercase text-primary">{side}</span>
+                {/* Mobile-only Owner; its own column from sm. */}
+                <span className="mt-1 block sm:hidden">
+                  <OfferParties offer={offer} />
+                </span>
               </td>
-              <td className="px-4 py-row">
-                <AddressLink address={offer.owner} />
-                {/* Mobile-only inline Destination — under md the
-                    Destination column is hidden, so we surface its
-                    content as a secondary line on the Owner cell
-                    rather than dropping the data entirely. */}
-                {offer.destination && (
-                  <span className="mt-0.5 block font-mono text-tag text-muted md:hidden">
-                    → <AddressLink address={offer.destination} />
-                  </span>
-                )}
+              <td className={`${cell} hidden align-top sm:table-cell`}>
+                <OfferParties offer={offer} />
               </td>
-              <td className="px-4 py-row text-right font-mono text-cell tabular-nums text-primary">
+              <td className={`${cell} break-words text-right align-top font-mono text-cell tabular-nums text-primary max-sm:pr-0`}>
                 {formatOfferAmount(offer.amount)}
+                {/* Mobile-only Offer ID; its own column from sm. */}
+                <span className="mt-0.5 block text-tag text-muted sm:hidden">
+                  <span className="sr-only">Offer ID </span>
+                  {truncateHash(offer.nft_offer_index)}
+                </span>
               </td>
-              <td className="hidden px-4 py-row md:table-cell">
-                {offer.destination ? (
-                  <AddressLink address={offer.destination} />
-                ) : (
-                  <span className="font-mono text-cell text-muted">—</span>
-                )}
+              <td className={`${cell} hidden align-top font-mono text-cell text-muted sm:table-cell`}>
+                {truncateHash(offer.nft_offer_index)}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-    </div>
+      {hasMore && (
+        <LoadMoreFooter
+          visible={visible}
+          total={rows.length}
+          onLoadMore={loadMore}
+          onShowAll={showAll}
+          label="offers"
+        />
+      )}
+    </Section>
   );
 }
+
+/** The offer's owner, and who it's reserved for when it has a destination. */
+function OfferParties({ offer }: { offer: NFTOffer }) {
+  return (
+    <>
+      <AddressLink address={offer.owner} />
+      {offer.destination && (
+        <span className="mt-0.5 block font-mono text-tag text-muted">
+          <span aria-hidden="true">→ </span>
+          <span className="sr-only">Destination </span>
+          <AddressLink address={offer.destination} />
+        </span>
+      )}
+    </>
+  );
+}
+
+export { NFTOfferTable };

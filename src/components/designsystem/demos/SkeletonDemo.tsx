@@ -1,5 +1,3 @@
-"use client";
-
 import { Skeleton } from "@/components/shared/Skeleton";
 import DemoCard from "../shared/DemoCard";
 
@@ -12,7 +10,7 @@ export default function SkeletonDemo() {
       preview={
         <div className="w-full max-w-sm space-y-4">
           {/* Card skeleton */}
-          <div className="space-y-3 rounded-2xl border border-elevated bg-surface p-5">
+          <div className="space-y-3 rounded-2xl border border-line bg-surface p-5">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-1/2" />

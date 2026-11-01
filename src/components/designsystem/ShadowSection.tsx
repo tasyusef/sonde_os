@@ -1,5 +1,3 @@
-"use client";
-
 import SectionHeader from "./SectionHeader";
 
 export default function ShadowSection() {
@@ -12,7 +10,7 @@ export default function ShadowSection() {
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-3">
-          <div className="flex h-40 cursor-pointer items-center justify-center rounded-2xl bg-surface shadow-card transition-shadow duration-300 hover:shadow-card-hover">
+          <div className="flex h-40 cursor-pointer items-center justify-center rounded-2xl bg-surface shadow-card hover:shadow-card-hover">
             <span className="font-mono text-cell text-muted">
               Hover me
             </span>

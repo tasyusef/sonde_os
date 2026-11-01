@@ -1,16 +1,19 @@
-"use client";
-
 /**
  * XrplProvider + useXrpl hook
  *
- * A single browser-native WebSocket per tab that talks directly to XRPL
- * public nodes.  Distributes load by user IP instead of funneling everything
- * through the server.
+ * One browser-native WebSocket per tab that talks directly to XRPL public
+ * nodes, so load is spread by user IP. Failover, keepalive and primary
+ * recovery come from `XrplSocket`; `XrplRouter` sends Clio-only commands
+ * (`nft_info`, `nft_history`) to a second, lazily opened Clio socket.
  *
- * Provides a `send(command)` function for request/response queries.
- * Connection lifecycle: starts on Honeycluster, failover across 4 nodes,
- * reconnection with exponential backoff. Automatically probes the primary
- * node every 60s when connected to a fallback.
+ * `send(command, { timeoutMs })` waits for a connection, then for the
+ * reply (8 s default timeout).
+ *
+ * `unreachable` turns on when no node has been open for 15 s; views with
+ * nothing to show render an alert whose retry calls `reconnect`.
+ *
+ * The main socket also subscribes to the ledger stream on every open;
+ * `useLatestLedger()` reads it without re-rendering `useXrpl()` consumers.
  */
 
 import {
@@ -21,44 +24,51 @@ import {
   useCallback,
   useState,
   useMemo,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
-
-/* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
-
-const XRPL_URLS = [
-  "wss://honeycluster.io",
-  "wss://s2.ripple.com",
-  "wss://xrplcluster.com",
-  "wss://s1.ripple.com",
-];
-
-const REQUEST_TIMEOUT = 8_000;
-const CONNECT_TIMEOUT = 8_000;
-const MAX_RECONNECT_DELAY = 60_000;
-const PRIMARY_PROBE_INTERVAL = 120_000;
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-type PendingCallback = {
-  resolve: (value: unknown) => void;
-  reject: (reason: unknown) => void;
-};
+import { XrplRouter } from "@/lib/xrpl-router";
+import { watchReachability, type Reachability } from "@/lib/xrpl-reachability";
+import type { SendFn } from "@/lib/xrpl-pagination";
+import {
+  createLedgerTickStore,
+  parseLedgerTick,
+  type LedgerTick,
+  type LedgerTickStore,
+} from "@/lib/ledger-tick";
 
 export interface XrplContextValue {
   /** Send an XRPL command and wait for the response. */
-  send: (command: Record<string, unknown>) => Promise<unknown>;
+  send: SendFn;
   /** Whether the WebSocket is currently connected. */
   connected: boolean;
+  /** True once the socket has connected at least once. Gate one-shot
+   *  queries on this, not `connected`: `send` waits out reconnects, and
+   *  a key that flips to null on every drop would blank the page. */
+  ready: boolean;
   /** Hostname of the currently active XRPL node. */
   activeNode: string;
+  /** No node has been open for `UNREACHABLE_AFTER_MS`. */
+  unreachable: boolean;
+  /** Try connecting now instead of waiting out the backoff. */
+  reconnect: () => void;
 }
 
+/** From start, the last drop, or a retry. Long enough for a slow first
+ *  node to fail over; short enough that a dead network isn't a
+ *  skeleton forever. */
+const UNREACHABLE_AFTER_MS = 15_000;
+
 const XrplContext = createContext<XrplContextValue | null>(null);
+const LedgerTickContext = createContext<LedgerTickStore | null>(null);
+
+function hostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /*  Provider                                                           */
@@ -66,241 +76,83 @@ const XrplContext = createContext<XrplContextValue | null>(null);
 
 export function XrplProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
+  const [ready, setReady] = useState(false);
   const [activeNode, setActiveNode] = useState("");
+  const [unreachable, setUnreachable] = useState(false);
+  const socketRef = useRef<XrplRouter | null>(null);
+  const reachRef = useRef<Reachability | null>(null);
+  const [ledgerTicks] = useState(createLedgerTickStore);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const pendingRef = useRef(new Map<number, PendingCallback>());
-  const requestIdRef = useRef(0);
-  const urlIndexRef = useRef(0);
-  const reconnectDelayRef = useRef(1_000);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const primaryProbeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mountedRef = useRef(true);
-  const connectingRef = useRef(false);
-  const switchingToPrimaryRef = useRef(false);
-  const lastErrorLogRef = useRef<string | null>(null);
-
-  /* ---- lifecycle --------------------------------------------------- */
-
-  // All WS callbacks live inside this effect so that forward refs resolve via
-  // function hoisting — avoids the circular-useCallback pattern that trips
-  // react-hooks/immutability. Runs once per mount; refs and state setters are
-  // stable so empty deps are correct.
   useEffect(() => {
-    mountedRef.current = true;
-
-    function rejectAllPending(reason: string) {
-      for (const [id, cb] of pendingRef.current) {
-        cb.reject(new Error(reason));
-        pendingRef.current.delete(id);
-      }
-    }
-
-    function getHostname(idx: number) {
-      const url = XRPL_URLS[idx % XRPL_URLS.length];
-      try {
-        return new URL(url).hostname;
-      } catch {
-        return url;
-      }
-    }
-
-    function stopPrimaryProbe() {
-      if (primaryProbeTimerRef.current) {
-        clearTimeout(primaryProbeTimerRef.current);
-        primaryProbeTimerRef.current = null;
-      }
-    }
-
-    function connect() {
-      if (connectingRef.current || !mountedRef.current) return;
-      connectingRef.current = true;
-
-      const idx = urlIndexRef.current % XRPL_URLS.length;
-      const url = XRPL_URLS[idx];
-      setActiveNode(getHostname(idx));
-
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
-
-      const timeout = setTimeout(() => {
-        connectingRef.current = false;
-        ws.close();
-        // onclose will also fire — guard prevents double reconnect
-      }, CONNECT_TIMEOUT);
-
-      ws.onopen = () => {
-        clearTimeout(timeout);
-        const isPrimary = url === XRPL_URLS[0];
-        connectingRef.current = false;
-        reconnectDelayRef.current = 1_000;
-        urlIndexRef.current = 0; // reset so next failover retries primary first
-        lastErrorLogRef.current = null; // reset so next failure is logged
-        setConnected(true);
-        console.log(`[XRPL-Client] Connected to ${url}${isPrimary ? "" : " (fallback)"}`);
-        if (isPrimary) {
-          stopPrimaryProbe();
-        } else {
-          startPrimaryProbe();
+    const reach = watchReachability(UNREACHABLE_AFTER_MS, setUnreachable);
+    reachRef.current = reach;
+    // Log each failing node once, not on every retry during an outage.
+    let lastWarnedUrl: string | null = null;
+    const socket = new XrplRouter({
+      maxReconnectDelayMs: 60_000,
+      probeIntervalMs: 120_000,
+      onStatus: ({ connected: isConnected, url }) => {
+        reach.status(isConnected);
+        setConnected(isConnected);
+        if (isConnected) setReady(true);
+        setActiveNode(hostname(url));
+      },
+      // Re-subscribes after every reconnect and failover. The reply
+      // seeds the ledger until the first stream message lands.
+      onOpen: () => {
+        socket.main
+          .request({ command: "subscribe", streams: ["ledger"] })
+          .then((result) => {
+            const tick = parseLedgerTick(result as Record<string, unknown>);
+            if (tick) ledgerTicks.set(tick);
+          })
+          .catch(() => {});
+      },
+      onStream: (data) => {
+        const tick = parseLedgerTick(data);
+        if (tick) ledgerTicks.set(tick);
+      },
+      onLog: (level, message, context) => {
+        if (level === "info") {
+          if (message === "Connected") lastWarnedUrl = null;
+          console.log(`[XRPL-Client] ${message}`, context ?? ""); // audit-ok
+          return;
         }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data as string);
-          if (data.id !== undefined) {
-            const cb = pendingRef.current.get(data.id);
-            if (cb) {
-              pendingRef.current.delete(data.id);
-              if (data.status === "error" || data.error) {
-                cb.reject(data);
-              } else {
-                cb.resolve(data.result);
-              }
-            }
-          }
-        } catch {
-          // ignore parse errors
-        }
-      };
-
-      ws.onclose = () => {
-        clearTimeout(timeout);
-        connectingRef.current = false;
-        setConnected(false);
-        rejectAllPending("WebSocket connection closed");
-        wsRef.current = null;
-        if (switchingToPrimaryRef.current) {
-          switchingToPrimaryRef.current = false;
-          reconnectDelayRef.current = 1_000;
-          if (reconnectTimerRef.current) {
-            clearTimeout(reconnectTimerRef.current);
-            reconnectTimerRef.current = null;
-          }
-          connect();
-        } else {
-          rotateAndReconnect();
-        }
-      };
-
-      ws.onerror = () => {
-        clearTimeout(timeout);
-        connectingRef.current = false;
-        setConnected(false);
-        rejectAllPending("WebSocket error");
-        // Log only once per URL to avoid console spam during extended outages
-        if (lastErrorLogRef.current !== url) {
-          console.error(`[XRPL-Client] Connection failed: ${url}`);
-          lastErrorLogRef.current = url;
-        }
-        // onclose will fire after onerror, which handles reconnection
-      };
-    }
-
-    function rotateAndReconnect() {
-      if (!mountedRef.current) return;
-      urlIndexRef.current++;
-      const delay = reconnectDelayRef.current;
-      const jitter = Math.random() * Math.min(delay * 0.3, 2_000);
-      reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY);
-      reconnectTimerRef.current = setTimeout(() => {
-        reconnectTimerRef.current = null;
-        connect();
-      }, delay + jitter);
-    }
-
-    function startPrimaryProbe() {
-      stopPrimaryProbe();
-      if (!mountedRef.current) return;
-      primaryProbeTimerRef.current = setTimeout(() => {
-        primaryProbeTimerRef.current = null;
-        if (!mountedRef.current) return;
-
-        const primaryUrl = XRPL_URLS[0];
-        let settled = false;
-        const probe = new WebSocket(primaryUrl);
-
-        const probeTimeout = setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          try { probe.close(); } catch { /* ignore */ }
-          startPrimaryProbe(); // retry later
-        }, CONNECT_TIMEOUT);
-
-        probe.onopen = () => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(probeTimeout);
-          try { probe.close(); } catch { /* ignore */ }
-          console.log("[XRPL-Client] Primary recovered, switching back");
-          switchingToPrimaryRef.current = true;
-          urlIndexRef.current = 0;
-          wsRef.current?.close(); // close handler will reconnect to primary
-        };
-
-        probe.onerror = () => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(probeTimeout);
-          startPrimaryProbe(); // retry later
-        };
-      }, PRIMARY_PROBE_INTERVAL);
-    }
-
-    connect();
-
+        const url = typeof context?.url === "string" ? context.url : null;
+        if (url && url === lastWarnedUrl) return;
+        lastWarnedUrl = url;
+        console.warn(`[XRPL-Client] ${message}`, context ?? ""); // audit-ok
+      },
+    });
+    socketRef.current = socket;
+    socket.start();
     return () => {
-      mountedRef.current = false;
-      wsRef.current?.close();
-      wsRef.current = null;
-      stopPrimaryProbe();
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-      rejectAllPending("Component unmounted");
+      socket.stop();
+      reach.stop();
+      socketRef.current = null;
+      reachRef.current = null;
     };
+  }, [ledgerTicks]);
+
+  const send = useCallback<SendFn>((command, opts) => {
+    const socket = socketRef.current;
+    if (!socket) return Promise.reject(new Error("WebSocket not connected"));
+    return socket.request(command, opts);
   }, []);
 
-  /* ---- send ------------------------------------------------------- */
+  const reconnect = useCallback(() => {
+    if (reachRef.current?.retry()) socketRef.current?.reconnectNow();
+  }, []);
 
-  const send = useCallback(
-    (command: Record<string, unknown>): Promise<unknown> => {
-      return new Promise((resolve, reject) => {
-        const ws = wsRef.current;
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-          reject(new Error("WebSocket not connected"));
-          return;
-        }
-
-        const id = requestIdRef.current = (requestIdRef.current + 1) % 2_000_000_000;
-        pendingRef.current.set(id, { resolve, reject });
-
-        try {
-          ws.send(JSON.stringify({ ...command, id }));
-        } catch (err) {
-          pendingRef.current.delete(id);
-          reject(err);
-          return;
-        }
-
-        setTimeout(() => {
-          if (pendingRef.current.has(id)) {
-            pendingRef.current.delete(id);
-            reject(new Error("Request timed out"));
-          }
-        }, REQUEST_TIMEOUT);
-      });
-    },
-    []
+  const contextValue = useMemo(
+    () => ({ send, connected, ready, activeNode, unreachable, reconnect }),
+    [send, connected, ready, activeNode, unreachable, reconnect],
   );
 
-  /* ---- context value ---------------------------------------------- */
-
-  const contextValue = useMemo(() => ({ send, connected, activeNode }), [send, connected, activeNode]);
-
   return (
-    <XrplContext.Provider value={contextValue}>{children}</XrplContext.Provider>
+    <XrplContext.Provider value={contextValue}>
+      <LedgerTickContext.Provider value={ledgerTicks}>{children}</LedgerTickContext.Provider>
+    </XrplContext.Provider>
   );
 }
 
@@ -312,4 +164,12 @@ export function useXrpl(): XrplContextValue {
   const ctx = useContext(XrplContext);
   if (!ctx) throw new Error("useXrpl must be used within <XrplProvider>");
   return ctx;
+}
+
+/** The latest validated ledger, or `null` until the stream delivers one
+ *  (and during prerender). */
+export function useLatestLedger(): LedgerTick | null {
+  const store = useContext(LedgerTickContext);
+  if (!store) throw new Error("useLatestLedger must be used within <XrplProvider>");
+  return useSyncExternalStore(store.subscribe, store.get, () => null);
 }

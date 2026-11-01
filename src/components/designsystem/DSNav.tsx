@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { SondeMark } from "@/components/shared/SondeLogo";
 import ThemeToggle from "@/components/layout/ThemeToggle";
@@ -36,10 +34,10 @@ export default function DSNav() {
   }, []);
 
   return (
-    <nav className="fixed left-3 right-3 top-3 z-50 flex items-center justify-between rounded-2xl border border-elevated bg-surface px-5 py-2.5 shadow-card backdrop-blur-md" style={{ backgroundColor: "color-mix(in srgb, var(--color-surface) 90%, transparent)" }}>
+    <nav className="fixed left-3 right-3 top-3 z-50 flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-2.5 shadow-card backdrop-blur-md" style={{ backgroundColor: "color-mix(in srgb, var(--color-surface) 90%, transparent)" }}>
       <div className="flex items-center gap-2.5">
-        <SondeMark size={20} className="text-brand" />
-        <span className="font-display text-ui font-semibold text-primary">
+        <SondeMark className="text-brand" />
+        <span className="font-display text-caps text-primary">
           Design System
         </span>
       </div>
@@ -55,17 +53,17 @@ export default function DSNav() {
                 document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
               }}
               className={cn(
-                "rounded-lg px-3 py-1.5 font-display text-label font-medium uppercase tracking-header transition-colors",
+                "px-3 py-1.5 font-display text-caps uppercase",
                 active === s.id
-                  ? "bg-brand/10 text-brand"
-                  : "text-muted hover:text-secondary"
+                  ? "bg-accent text-on-accent"
+                  : "text-muted hover:bg-primary hover:text-black"
               )}
             >
               {s.label}
             </a>
           ))}
         </div>
-        <div className="ml-2 border-l border-elevated pl-2">
+        <div className="ml-2 border-l border-line pl-2">
           <ThemeToggle />
         </div>
       </div>

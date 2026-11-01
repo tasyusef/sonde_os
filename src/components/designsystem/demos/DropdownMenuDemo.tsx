@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import DropdownMenu from "@/components/shared/DropdownMenu";
 import DemoCard from "../shared/DemoCard";
@@ -7,10 +5,9 @@ import DemoCard from "../shared/DemoCard";
 const OPTIONS = [
   { value: "all", label: "All routes" },
   { value: "/", label: "/" },
-  { value: "/markets", label: "/markets" },
   { value: "/network", label: "/network" },
-  { value: "/nft", label: "/nft" },
-  { value: "/admin", label: "/admin" },
+  { value: "/docs", label: "/docs" },
+  { value: "/support", label: "/support" },
 ];
 
 export default function DropdownMenuDemo() {
@@ -38,7 +35,7 @@ export default function DropdownMenuDemo() {
   items={[
     { value: "all", label: "All routes" },
     { value: "/", label: "/" },
-    { value: "/markets", label: "/markets" },
+    { value: "/network", label: "/network" },
   ]}
   selectedValue="${selected}"
   onSelect={setSelected}

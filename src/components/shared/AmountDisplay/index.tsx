@@ -1,6 +1,8 @@
-import { dropsToXrp } from "@/lib/xrpl-helpers";
+import { formatDropsAsXrp, parseDrops } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** An XRP amount from drops: exact, grouped ("1,234.5 XRP"). Renders
+ *  nothing when `drops` isn't a whole number. */
 export function AmountDisplay({
   drops,
   showSign = false,
@@ -10,17 +12,18 @@ export function AmountDisplay({
   showSign?: boolean;
   className?: string;
 }) {
-  const num = Number(drops);
-  if (!Number.isFinite(num)) return null;
-  const xrp = dropsToXrp(Math.abs(num).toString());
+  // BigInt, not Number: a float loses drops above ~9 billion XRP.
+  const d = parseDrops(drops);
+  if (d === null) return null;
+  const xrp = formatDropsAsXrp(d < 0n ? -d : d);
 
   let prefix = "";
   let colorClass = "text-primary";
 
-  if (showSign && num > 0) {
+  if (showSign && d > 0n) {
     prefix = "+";
     colorClass = "text-success";
-  } else if (showSign && num < 0) {
+  } else if (showSign && d < 0n) {
     prefix = "\u2212";
     colorClass = "text-error";
   }

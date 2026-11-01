@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 
 function readHex(variable: string): string {
@@ -36,7 +34,7 @@ export default function SwatchCard({
   return (
     <div className="space-y-2">
       <div
-        className="h-16 w-full rounded-lg border border-elevated"
+        className="h-16 w-full rounded-lg border border-line"
         style={{ backgroundColor: `var(${variable})` }}
       />
       <div>

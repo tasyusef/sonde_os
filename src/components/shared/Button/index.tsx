@@ -1,14 +1,4 @@
-"use client";
-
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { motion, type HTMLMotionProps } from "motion/react";
-import {
-  HOVER_SCALE,
-  ICON_HOVER_SCALE,
-  ICON_TAP_SCALE,
-  SPRING,
-  TAP_SCALE,
-} from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "outline" | "danger";
@@ -26,24 +16,28 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
 }
 
+// Every variant reached for becomes a block of the text colour (the
+// Toolbox convention); only the resting fill differs. The primary action
+// also steps one nudge to the right. `not-disabled:`, not `enabled:`, so
+// the same classes work on a Link (`:enabled` only matches form controls).
+const REACHED = "not-disabled:hover:bg-primary not-disabled:hover:text-black";
+
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary:
-    "bg-brand text-white shadow-card hover:bg-brand-light hover:shadow-card-hover",
-  secondary:
-    "bg-elevated text-primary hover:bg-elevated/80",
-  ghost:
-    "text-muted hover:text-primary hover:bg-elevated",
-  outline:
-    "border border-elevated bg-transparent text-secondary hover:border-brand/30 hover:text-primary",
-  danger:
-    "bg-error text-white hover:bg-error/90",
+  primary: cn("bg-accent text-on-accent motion-safe:not-disabled:hover:translate-x-nudge", REACHED),
+  secondary: cn("bg-dither text-primary", REACHED),
+  ghost: cn("text-muted", REACHED),
+  outline: cn("shadow-card text-primary", REACHED),
+  danger: cn("bg-error text-on-error", REACHED),
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: "px-3 py-1 text-label",
-  md: "px-4 py-2 text-ui",
-  lg: "px-5 py-2.5 text-ui",
+  sm: "px-3 py-1 text-caps",
+  md: "px-4 py-2 text-caps",
+  lg: "px-5 py-2.5 text-caps",
 };
+
+// Icon-only buttons are square at the control floor.
+const ICON_ONLY_BASE = "min-w-[var(--ctrl-h-mobile)] sm:min-w-[var(--ctrl-h-desktop)]";
 
 const ICON_ONLY_SIZE_CLASSES: Record<ButtonSize, string> = {
   sm: "p-1",
@@ -52,19 +46,15 @@ const ICON_ONLY_SIZE_CLASSES: Record<ButtonSize, string> = {
 };
 
 const BASE_CLASSES =
-  // `min-h-[var(--ctrl-h-*)]` aligns Buttons with Toggle/Input heights
+  // The `--ctrl-h-mobile` / `--ctrl-h-desktop` min-height aligns Buttons with Toggle/Input heights
   // in shared rows. The min-h floor lets `lg`/`iconOnly` variants stay
   // taller while smaller variants get bumped up to the touch-friendly
   // 36px on mobile.
-  "inline-flex min-h-[var(--ctrl-h-mobile)] sm:min-h-[var(--ctrl-h-desktop)] items-center justify-center gap-2 rounded-xl font-display font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex min-h-[var(--ctrl-h-mobile)] sm:min-h-[var(--ctrl-h-desktop)] items-center justify-center gap-2 font-display uppercase disabled:opacity-50 disabled:cursor-not-allowed";
 
 /**
  * Get the full className string for a Button style without rendering a <button>.
- * Useful for applying button styling to a Next.js <Link> or any non-button element.
- *
- * Note: this helper does NOT apply the motion scale animation — those only
- * exist on the motion.button rendered by <Button>. Link-styled buttons get
- * the same look but without the press feedback.
+ * Useful for applying button styling to a React Router <Link> or any non-button element.
  */
 export function buttonClasses({
   variant = "primary",
@@ -82,7 +72,7 @@ export function buttonClasses({
   return cn(
     BASE_CLASSES,
     VARIANT_CLASSES[variant],
-    iconOnly ? ICON_ONLY_SIZE_CLASSES[size] : SIZE_CLASSES[size],
+    iconOnly ? cn(ICON_ONLY_BASE, ICON_ONLY_SIZE_CLASSES[size]) : SIZE_CLASSES[size],
     fullWidth && "w-full",
     className,
   );
@@ -116,17 +106,14 @@ function Spinner({ className }: { className?: string }) {
 /**
  * Universal button primitive. Every button on the site should use this.
  *
- * Variants:
- * - primary: brand-filled, for main CTAs (Launch Explorer, Subscribe, Save)
- * - secondary: elevated background, for secondary actions
- * - ghost: transparent, for compact/inline icon buttons (close, settings)
- * - outline: bordered, for tertiary actions (Cancel, Load More)
+ * Variants (each inverts to a text-colour block when reached for):
+ * - primary: the accent block, for main CTAs (Launch Explorer, Subscribe, Save)
+ * - secondary: the dither, for secondary actions
+ * - ghost: bare, for compact/inline icon buttons (close, settings)
+ * - outline: a 1px rim, for tertiary actions (Cancel, Load More)
  * - danger: error-filled, for destructive actions (Delete, Remove)
  *
- * For navigation, wrap in Next.js <Link> or use `buttonClasses()` on the Link directly.
- *
- * Includes subtle Framer Motion scale feedback on hover and tap. Disabled
- * and loading states skip the animations.
+ * For navigation, wrap in a React Router <Link> or use `buttonClasses()` on the Link directly.
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
@@ -147,23 +134,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 ) {
   const isDisabled = disabled || loading;
 
-  // Icon-only buttons get slightly more feedback since they have less visual mass
-  const hoverScale = iconOnly ? ICON_HOVER_SCALE : HOVER_SCALE;
-  const tapScale = iconOnly ? ICON_TAP_SCALE : TAP_SCALE;
-
-  const motionProps: HTMLMotionProps<"button"> = isDisabled
-    ? {}
-    : {
-        // Hover uses the quick, very damped `snap` — instant lift, no
-        // post-hover wobble. Tap uses the bouncier `pop` so the release
-        // overshoots past scale 1.0 before settling — that overshoot is
-        // the "stretch" half of squash-and-stretch.
-        whileHover: { scale: hoverScale, transition: SPRING.snap },
-        whileTap: { scale: tapScale, transition: SPRING.pop },
-      };
-
   return (
-    <motion.button
+    <button
       ref={ref}
       type={type}
       disabled={isDisabled}
@@ -173,15 +145,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         loading && "cursor-wait",
         className,
       )}
-      {...motionProps}
-      {...(props as HTMLMotionProps<"button">)}
+      {...props}
     >
       {loading ? <Spinner /> : leftIcon && <span className="inline-flex shrink-0">{leftIcon}</span>}
       {children}
       {!loading && rightIcon && (
         <span className="inline-flex shrink-0">{rightIcon}</span>
       )}
-    </motion.button>
+    </button>
   );
 });
 

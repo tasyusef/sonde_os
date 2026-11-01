@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { TypeTag } from "@/components/shared/TypeTag";
 import DemoCard from "../shared/DemoCard";
@@ -20,6 +18,7 @@ const types = [
   "AccountDelete",
   "CheckCreate",
   "PaymentChannelCreate",
+  "TicketCreate",
 ];
 
 export default function TypeTagDemo() {
@@ -29,7 +28,7 @@ export default function TypeTagDemo() {
     <DemoCard
       name="TypeTag"
       importPath="@/components/shared/TypeTag"
-      description="Square tag with 10% opacity background. Color mapped automatically from transaction type via getTypeColor()."
+      description="Square tag in the type's family hue (tag-*): the hue as text on a 10% tint on the dark ground, the hue as a solid fill with ink on paper. Both reach 4.5:1."
       preview={<TypeTag txType={txType} />}
       controls={
         <SelectControl

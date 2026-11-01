@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import DemoCard from "../shared/DemoCard";

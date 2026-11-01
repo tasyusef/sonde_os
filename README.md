@@ -1,86 +1,68 @@
 # Sonde
 
-XRPL block explorer and on-chain intelligence platform. Sonde connects to the XRP Ledger over WebSockets, ingests every transaction in real time into ClickHouse, and serves data-dense analytics: accounts, transactions, tokens, NFTs, DEX activity, network health, portfolio tracking, and a "smart money" scoring engine that ranks wallets by risk-adjusted trading performance.
+A free, easy-to-read explorer for the XRP Ledger. Live at **[sondelab.com](https://sondelab.com)**.
 
-Built and operated by [Timothy Ali](https://timothyali.com).
+Look up any account, transaction, ledger, token or NFT and understand it. No sign-in, no paid tier, no tracking cookies.
 
-## Highlights
+## What it does
+- **One search box** for addresses, transaction hashes, ledger numbers, NFT IDs and token names.
+- **Accounts:** balance and reserve, then tabs for transactions, positions (tokens, trust lines, escrows, payment channels), offers, NFTs, issued tokens, and a profile with its settings, objects and who funded it.
+- **Transactions:** who did what, the balance changes, and the ledger objects each one touched.
+- **Ledgers, tokens and NFTs:** a ledger's transactions by type, a token's issuer, holders and AMM pool, an NFT's media and offers.
+- **Network:** a live feed of every ledger as it closes, the XRP price on a pixel chart, and amendments with their validator votes.
+- **Watchlist:** saved accounts with your own labels, kept in your browser.
+- **Docs:** a plain-language guide to the XRP Ledger and to reading Sonde.
 
-- **Real-time ingestion pipeline** — a single idempotent `ingestLedger()` path shared by the live ledger subscriber and a multi-worker historical backfill. Crash-safe by construction: ClickHouse `ReplacingMergeTree` dedup + idempotent Postgres upserts, with the ledger pointer advance as the atomicity gate.
-- **Two-store architecture** — ClickHouse for OLAP (raw transactions, DEX trades, NFT activity, value-transfer events, dozens of materialized-view rollups), Postgres for OLTP (auth, subscriptions, watchlists, alerts, job state) via Drizzle.
-- **Smart money scoring** — composite 0–100 score (profitability via WAVG cost basis, ROI, win rate, Sharpe-style consistency, early-buyer signal, exit timing) with wash-trading detection penalties. Runs as a daily systemd timer.
-- **AI query interface** — natural-language questions over ledger data ("Ask the Ledger"), with an XRPL-scoped prompt, SQL routing, and prompt-injection guards. Supports managed keys or BYOK.
-- **Wallet-native auth** — sign-in with Xaman (XRPL wallet) challenge signatures, JWT sessions via `jose`, Stripe + on-chain crypto billing.
+## How it works
+- **No backend.** The site is static files on Cloudflare. Every page reads public XRPL nodes from your browser over WebSocket, with failover between nodes.
+- **Live feed relay.** A small Rust Worker on a Cloudflare Durable Object holds one node connection and sends each visitor a compact snapshot per ledger: 20–65 KB instead of a 0.3–0.8 MB ledger.
+- **$0 to run.** Both fit Cloudflare's free plan.
 
-## Tech Stack
+## Design
+A pixel design system: everything is set in bitmap faces on whole pixels (PARC Pixel for Sonde's own labels, Departure Mono for data and text), with square shapes, hard 1px edges and dither fills instead of boxes. Yellow marks the primary action and where you are. Each transaction family has its own OKLCH hue, checked for contrast in both themes. Icons, the logo and the globe are drawn on the same pixel grid. Dark and light themes; motion is springs and stops under reduced motion. Tokens live in `src/globals.css`; `/designsystem` shows them.
 
-- **Framework:** Next.js 16 (App Router, Server Components), React 19, TypeScript
-- **Styling:** Tailwind CSS v4 (token-driven design system), Motion for animation
-- **Data:** ClickHouse (`@clickhouse/client`) + PostgreSQL (Drizzle ORM + `postgres`)
-- **XRPL:** `xrpl` + raw WebSocket singletons (page-serving, ingestion, and intelligence connections)
-- **AI:** Anthropic / OpenAI / Google SDKs behind a model-router
-- **Payments:** Stripe + native XRPL payment watcher
-- **Realtime:** Server-Sent Events for the live ledger feed
-- **Charts:** Recharts, d3-hierarchy, react-force-graph
+## Stack
+React 19 · React Router 8 (framework mode, static SPA) on Vite · TypeScript · Tailwind CSS v4 · Motion · SWR · Zod. The relay is Rust (`workers-rs`). Tests are Vitest, plus the relay's cargo tests.
 
-## Repo tour
-
-| Path | What's there |
-|------|--------------|
-| `src/app` | Routes — explorer pages, ~130 API routes (`analytics/`, `intel/`, `portfolio/`, `smart-money/`, …) |
-| `src/lib` | The engine room: `ledger-ingester.ts`, `smart-money-scorer.ts`, `anomaly-detection.ts`, `alert-engine.ts`, ClickHouse/Postgres query layers, AI routing |
-| `src/components` | Feature-scoped UI (account, nft, portfolio, intel, tokens…) plus a shared primitives library |
-| `src/db` | Drizzle schema + migrations |
-| `scripts` | Operational tooling — the migration runner, backfills, seeders, verification checks, cron entrypoints |
-| `infra` | systemd units/timers, deploy webhook, ClickHouse config for the self-hosted data tier |
-
-## Running locally
-
-Prerequisites: Node ≥ 20.9, pnpm, a Postgres instance. ClickHouse is optional — analytics/intel features degrade gracefully when `CLICKHOUSE_URL` is unset.
-
-Create `.env.local`:
-
-```env
-DATABASE_URL=postgresql://...          # Required — Postgres connection string
-ENABLE_INGESTION=true                  # Starts the real-time XRPL ingestion pipeline
-
-# Analytics / intelligence layer (optional)
-CLICKHOUSE_URL=http://localhost:8123
-CLICKHOUSE_DATABASE=sonde
-
-# Metadata + price providers (optional)
-BITHOMP_API_KEY=...
-CRYPTOCOMPARE_API_KEY=...
-
-# AI query interface (optional)
-ANTHROPIC_API_KEY=...
-
-# Auth + billing (optional)
-XUMM_API_KEY=...
-XUMM_API_SECRET=...
-AUTH_SECRET=...                        # JWT signing secret
-STRIPE_SECRET_KEY=...
-```
-
-Then:
+## Run locally
+Requires Node 24 LTS (`.nvmrc`) and pnpm.
 
 ```bash
 pnpm install
-pnpm migrate        # Postgres schema (idempotent, also runs on every deploy)
-pnpm dev            # http://localhost:3000
 ```
-
-ClickHouse schema setup (if using the analytics layer): `pnpm tsx scripts/setup-clickhouse.ts`.
-
-## Verification
 
 ```bash
-pnpm typecheck
-pnpm lint
+pnpm dev
 ```
 
-Both run automatically on pre-push via `simple-git-hooks`.
+It works with no `.env.local`: pages read public XRPL nodes directly. Optional settings are in [`.env.example`](.env.example).
+
+### Live relay
+The live feed on `/network` and the account page comes from the relay in `relay/`; without it those pages skip the feed. Rust (stable) with the `wasm32-unknown-unknown` target is needed. Run it with `pnpm relay:dev` and add to `.env.local`:
+
+```env
+VITE_LIVE_RELAY_URL=ws://127.0.0.1:8788/live
+```
+
+The relay only accepts pages on `localhost:3000` and `:3001` (`ALLOWED_ORIGINS` in `relay/wrangler.toml`).
+
+## Commands
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Dev server on `localhost:3000` |
+| `pnpm build` | Static build in `build/client`: prerendered pages, the SPA shell, `_headers`, `_redirects`, sitemap |
+| `pnpm preview` | Serves `build/client` the way Cloudflare does (`wrangler dev`, port 3000) |
+| `pnpm check` | Typecheck + lint + tests, plus the relay's fmt/clippy/tests (also runs before every push and in CI) |
+| `pnpm test` | Unit tests (Vitest) |
+| `pnpm relay:dev` | Live relay on `127.0.0.1:8788` |
+| `pnpm brand` | Redraws the icons and link-preview images from the logo bitmaps |
+| `pnpm tokens` | Rebuilds the token list that search uses |
+| `pnpm audit:code` | Finds orphaned files, unused exports and unused dependencies |
+
+## Deploys
+The site deploys through Cloudflare Workers Builds on every push to `master`. The relay deploys by hand with `pnpm relay:deploy`.
 
 ## License
+MIT. The first version (Next.js, ClickHouse and Postgres, shut down July 2026) is the previous commit in this repo's history.
 
-[MIT](LICENSE)
+Built by [Timothy Ali](https://timothyali.com).

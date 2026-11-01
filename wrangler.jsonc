@@ -1,0 +1,20 @@
+// The site: an assets-only Worker serving `pnpm build` output. No server
+// code runs; `_headers` and `_redirects` in build/client set headers and
+// the /home redirect. The live relay is a separate Worker (relay/).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sonde",
+  "compatibility_date": "2026-09-01",
+  // Served only at the apex, with no workers.dev URL. www 301s here (a zone
+  // redirect rule, not this Worker).
+  "routes": [{ "pattern": "sondelab.com", "custom_domain": true }],
+  "workers_dev": false,
+  "assets": {
+    "directory": "./build/client",
+    // Unknown paths get index.html, the SPA shell; the router renders the
+    // page or the 404 in the browser.
+    "not_found_handling": "single-page-application",
+    // /support serves support/index.html; /support/ redirects to /support.
+    "html_handling": "drop-trailing-slash",
+  },
+}

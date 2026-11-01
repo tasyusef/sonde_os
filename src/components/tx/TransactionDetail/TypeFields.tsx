@@ -1,7 +1,8 @@
-import Link from "next/link";
-import { dropsToXrp, truncateHash } from "@/lib/xrpl-helpers";
-import { getNFTMetadataBatch } from "@/lib/nft-metadata-resolver";
-import { extractCollectionName } from "@/lib/nft-metadata-fetcher";
+import AddressLink from "@/components/shared/AddressLink";
+import { decodeCurrency, dropsToXrp } from "@/lib/xrpl-helpers";
+import { hexToUtf8 } from "@/lib/hex";
+import NftLinks from "./NftLinks";
+import { findNftokenIds } from "./nftoken-ids";
 
 interface TxData {
   [key: string]: unknown;
@@ -10,38 +11,22 @@ interface TxData {
 
 function formatXrpOrToken(amt: unknown): string {
   if (typeof amt === "string") return `${dropsToXrp(amt)} XRP`;
-  const obj = amt as { value: string; currency: string };
-  return `${obj.value} ${obj.currency}`;
+  const obj = amt as { value: string; currency?: string; mpt_issuance_id?: string };
+  return `${obj.value} ${obj.currency ? decodeCurrency(obj.currency) : obj.mpt_issuance_id ? "MPT" : ""}`.trim();
 }
 
-function TableRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <tr className="border-b border-elevated last:border-b-0">
-      <td className="w-[180px] px-4 py-row font-display text-label font-medium uppercase tracking-header text-muted align-top">
-        {label}
-      </td>
-      <td className="px-4 py-row">
-        <span className="font-mono text-cell text-primary">{children}</span>
-      </td>
-    </tr>
-  );
-}
+const NFT_RELATED = new Set([
+  "NFTokenMint",
+  "NFTokenBurn",
+  "NFTokenModify",
+  "NFTokenCreateOffer",
+  "NFTokenAcceptOffer",
+  "NFTokenCancelOffer",
+]);
 
-/** Pull a candidate NFTokenID from an NFT-related tx, checking the tx body
- *  first (direct on NFTokenCreateOffer / NFTokenBurn) then `meta.nftoken_id`. */
-function findNftokenId(tx: TxData): string | null {
-  const direct = tx.NFTokenID;
-  if (typeof direct === "string" && /^[A-Fa-f0-9]{64}$/.test(direct)) {
-    return direct;
-  }
-  const meta = (tx.meta ?? tx.metaData) as
-    | { nftoken_id?: string }
-    | undefined;
-  if (meta?.nftoken_id && /^[A-Fa-f0-9]{64}$/.test(meta.nftoken_id)) {
-    return meta.nftoken_id;
-  }
-  return null;
-}
+/** A bulk NFTokenCancelOffer can touch dozens of tokens; link the first
+ *  few and count the rest rather than resolving metadata for all. */
+const MAX_NFT_LINKS = 10;
 
 export type TypeField = { label: string; content: React.ReactNode };
 
@@ -52,47 +37,21 @@ export type TypeField = { label: string; content: React.ReactNode };
  * in their own "Type-specific Details" card (and skips the card
  * entirely when there's nothing to show).
  */
-export async function getTypeFields(tx: TxData): Promise<TypeField[]> {
+export function getTypeFields(tx: TxData): TypeField[] {
   const fields: TypeField[] = [];
 
-  // Resolve NFT + collection names for NFT-related tx types.
-  const nftRelated = new Set([
-    "NFTokenMint",
-    "NFTokenBurn",
-    "NFTokenCreateOffer",
-    "NFTokenAcceptOffer",
-    "NFTokenCancelOffer",
-  ]);
-  if (nftRelated.has(tx.TransactionType)) {
-    const nftokenId = findNftokenId(tx);
-    if (nftokenId) {
+  // The NFT is the subject of these types, so it always gets a row: the
+  // resolved name when metadata loads, the truncated ID when it doesn't.
+  if (NFT_RELATED.has(tx.TransactionType)) {
+    const ids = findNftokenIds(tx);
+    if (ids.length > 0) {
       const uri = typeof tx.URI === "string" ? tx.URI : undefined;
-      const resolved = await getNFTMetadataBatch([{ nftokenId, uri }]).catch(
-        () => new Map(),
-      );
-      const meta = resolved.get(nftokenId);
-      if (meta) {
-        const displayName = meta.name ?? truncateHash(nftokenId, 8);
-        const collection = meta.name
-          ? extractCollectionName(meta.name)
-          : null;
-        fields.push({
-          label: "NFT",
-          content: (
-            <Link
-              href={`/nft/${nftokenId}`}
-              className="inline-flex items-baseline gap-2 text-brand hover:text-brand-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
-            >
-              <span>{displayName}</span>
-              {collection && collection !== displayName ? (
-                <span className="font-mono text-tag text-muted">
-                  · {collection}
-                </span>
-              ) : null}
-            </Link>
-          ),
-        });
-      }
+      fields.push({
+        label: ids.length > 1 ? "NFTs" : "NFT",
+        content: (
+          <NftLinks ids={ids.slice(0, MAX_NFT_LINKS)} total={ids.length} uri={uri} />
+        ),
+      });
     }
   }
 
@@ -115,17 +74,14 @@ export async function getTypeFields(tx: TxData): Promise<TypeField[]> {
       content: (
         <>
           {(tx.LimitAmount as { value: string }).value}{" "}
-          <span className="text-muted">{(tx.LimitAmount as { currency: string }).currency}</span>
+          <span className="text-muted">{decodeCurrency((tx.LimitAmount as { currency: string }).currency)}</span>
         </>
       ),
     });
   }
 
   if (tx.TransactionType === "NFTokenMint" && tx.URI) {
-    let decodedUri: string | null = null;
-    try {
-      decodedUri = Buffer.from(tx.URI as string, "hex").toString("utf-8") || null;
-    } catch { /* non-hex URI */ }
+    const decodedUri = hexToUtf8(tx.URI as string) || null;
     if (decodedUri) {
       fields.push({
         label: "URI",
@@ -174,7 +130,7 @@ export async function getTypeFields(tx: TxData): Promise<TypeField[]> {
   ) {
     fields.push({
       label: "Owner",
-      content: <span className="text-brand">{tx.Owner as string}</span>,
+      content: <AddressLink address={tx.Owner as string} truncate={false} />,
     });
   }
 
@@ -183,11 +139,7 @@ export async function getTypeFields(tx: TxData): Promise<TypeField[]> {
     const decoded = memos.map((m, i) => {
       const data = m.Memo?.MemoData;
       if (!data) return null;
-      try {
-        return <span key={i}>{Buffer.from(data, "hex").toString("utf-8")}</span>;
-      } catch {
-        return <span key={i}>{data}</span>;
-      }
+      return <span key={i}>{hexToUtf8(data)}</span>;
     });
     if (decoded.some(Boolean)) {
       fields.push({
@@ -198,35 +150,4 @@ export async function getTypeFields(tx: TxData): Promise<TypeField[]> {
   }
 
   return fields;
-}
-
-/**
- * Existing TypeFields export — kept as a thin wrapper around
- * getTypeFields so any call site that still uses the renderRow
- * callback pattern keeps working. New call sites should prefer
- * getTypeFields + their own renderer.
- */
-export async function TypeFields({
-  tx,
-  renderRow,
-}: {
-  tx: TxData;
-  renderRow?: (label: string, children: React.ReactNode) => React.ReactNode;
-}) {
-  const fields = await getTypeFields(tx);
-  if (fields.length === 0) return null;
-
-  return (
-    <>
-      {fields.map((field) =>
-        renderRow ? (
-          <span key={field.label}>{renderRow(field.label, field.content)}</span>
-        ) : (
-          <TableRow key={field.label} label={field.label}>
-            {field.content}
-          </TableRow>
-        ),
-      )}
-    </>
-  );
 }

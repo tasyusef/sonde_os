@@ -1,7 +1,9 @@
-"use client";
-
+import { useMemo } from "react";
 import useSWR from "swr";
+import { hexToUtf8 } from "@/lib/hex";
+import { fetchNftMetadata } from "@/lib/nft-metadata";
 import type { NFTAttribute } from "@/types/nft";
+import { useMediaApproval } from "./useMediaApproval";
 
 export interface NFTMetadata {
   imageUrl: string | null;
@@ -10,39 +12,28 @@ export interface NFTMetadata {
   attributes: NFTAttribute[] | null;
 }
 
-async function fetcher(url: string): Promise<NFTMetadata | null> {
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  return res.json();
-}
-
 /**
- * Shared SWR-backed metadata fetch for NFT detail-page cards.
+ * Metadata for one hex NFT URI, fetched in the browser (gateway
+ * fallback in `nft-metadata.ts`). The NFT detail cards share it through
+ * the SWR key, so the gateway chain runs once per URI.
  *
- * Multiple cards on the NFT detail page (`NFTImageCard`,
- * `NFTDescriptionCard`, `NFTPropertiesCard`, the URI strip in
- * `NFTMetadataLinks`) all need the same parsed metadata blob.
- * Without sharing they'd each fire their own
- * `/api/nft-metadata?uri=…` request and the IPFS gateway chain (up
- * to 12s+ per gateway) would run multiple times in parallel for
- * the same URI. SWR dedupes on the cache key so they get one
- * fetch, one response.
- *
- * Returns the parsed metadata or null when the URI is empty / the
- * fetch failed. Also exposes `isLoading` so cards can render a
- * skeleton placeholder instead of flashing empty.
+ * On a host that needs the visitor's OK, nothing loads: `askHost` names
+ * it and `approve` allows it for this NFT.
  */
-export function useNFTMetadata(uri: string | null) {
+export function useNFTMetadata(uri: string | null, nftId: string) {
+  const raw = useMemo(() => (uri ? hexToUtf8(uri).trim() : null), [uri]);
+  const { askHost, approve } = useMediaApproval(nftId, raw);
   const { data, error, isLoading } = useSWR<NFTMetadata | null>(
-    uri ? `/api/nft-metadata?uri=${encodeURIComponent(uri)}` : null,
-    fetcher,
+    uri && !askHost ? ["nft-metadata", uri] : null,
+    ([, hex]: [string, string]) => fetchNftMetadata(hex, { priority: true }),
     {
       revalidateOnFocus: false,
-      // NFT JSON metadata is immutable per URI — no need to revalidate.
+      // Metadata is immutable per URI.
       revalidateIfStale: false,
+      revalidateOnReconnect: false,
       dedupingInterval: 60_000,
     },
   );
 
-  return { metadata: data ?? null, error, isLoading };
+  return { metadata: data ?? null, error, isLoading, askHost, approve };
 }

@@ -1,7 +1,7 @@
-"use client";
-
 import CopyButton from "@/components/shared/CopyButton";
+import ListNotice from "@/components/shared/ListNotice";
 import { LoadMoreFooter, usePagination } from "@/components/shared/Paginated";
+import { cell, thClass } from "@/lib/table";
 
 export interface LedgerObject {
   LedgerEntryType: string;
@@ -15,16 +15,19 @@ const KNOWN_META_KEYS = new Set([
   "PreviousTxnLgrSeq", "LedgerIndex",
 ]);
 
+/**
+ * Every ledger object the account owns, with a count per type above.
+ * Mobile-first:
+ *
+ *   Mobile (<sm): Type (+ Index) | Fields
+ *   sm+:          Type | Index | Fields
+ */
 export default function ObjectsList({ objects }: { objects: LedgerObject[] }) {
-  const { visible, hasMore, loadMore, showAll } = usePagination(objects.length, 15);
+  const { visible, hasMore, loadMore, showAll, listRef } = usePagination(objects.length, 15);
   const pageObjects = objects.slice(0, visible);
 
   if (objects.length === 0) {
-    return (
-      <div className="rounded-2xl shadow-card bg-surface p-8 text-center">
-        <p className="font-mono text-body text-muted">No ledger objects found</p>
-      </div>
-    );
+    return <ListNotice message="No ledger objects found." />;
   }
 
   // Group by type for summary
@@ -42,28 +45,34 @@ export default function ObjectsList({ objects }: { objects: LedgerObject[] }) {
           .map(([type, count]) => (
             <span
               key={type}
-              className="rounded-tag px-2 py-0.5 font-mono text-tag font-medium bg-elevated text-secondary"
+              className="rounded-tag px-2 py-0.5 font-mono text-tag font-medium bg-elevated text-primary"
             >
               {type} ({count})
             </span>
           ))}
       </div>
-      <div className="overflow-hidden rounded-2xl shadow-card bg-surface">
-        <table className="w-full">
+      <div>
+        <table className="w-full table-fixed">
+          <colgroup>
+            <col className="w-auto" />
+            <col className="hidden sm:table-column sm:w-[40%]" />
+            <col className="w-20" />
+          </colgroup>
           <thead>
-            <tr className="border-b border-elevated">
-              <th scope="col" className="px-4 py-row text-left font-display text-label font-medium uppercase tracking-header text-muted">
-                Type
+            <tr className="border-b border-line">
+              <th scope="col" className={`${thClass} text-left`}>
+                <span className="sm:hidden">Type / Index</span>
+                <span className="hidden sm:inline">Type</span>
               </th>
-              <th scope="col" className="px-4 py-row text-left font-display text-label font-medium uppercase tracking-header text-muted">
+              <th scope="col" className={`${thClass} hidden text-left sm:table-cell`}>
                 Index
               </th>
-              <th scope="col" className="px-4 py-row text-right font-display text-label font-medium uppercase tracking-header text-muted">
+              <th scope="col" className={`${thClass} text-right`}>
                 Fields
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={listRef}>
             {pageObjects.map((obj, i) => {
               const fieldCount = Object.keys(obj).filter((k) => !KNOWN_META_KEYS.has(k)).length;
               const idx = obj.index ?? "";
@@ -74,20 +83,22 @@ export default function ObjectsList({ objects }: { objects: LedgerObject[] }) {
               return (
                 <tr
                   key={idx ? `${idx}-${i}` : i}
-                  className="border-b border-elevated last:border-b-0 transition-colors hover:bg-row-hover"
+                  className="border-b border-line last:border-b-0 hover:bg-row-hover"
                 >
-                  <td className="px-4 py-row">
-                    <span className="rounded-tag px-2 py-0.5 font-mono text-tag font-medium bg-elevated text-secondary">
+                  <td className={`${cell} align-top`}>
+                    <span className="rounded-tag px-2 py-0.5 font-mono text-tag font-medium bg-elevated text-primary">
                       {obj.LedgerEntryType}
                     </span>
-                  </td>
-                  <td className="px-4 py-row">
-                    <span className="flex items-center gap-1.5">
-                      <span className="font-mono text-cell text-primary">{truncatedIdx}</span>
-                      {idx && <CopyButton text={idx} />}
+                    {/* Mobile-only Index; its own column from sm. */}
+                    <span className="mt-1 block sm:hidden">
+                      <span className="sr-only">Index </span>
+                      <ObjectIndex idx={idx} truncated={truncatedIdx} />
                     </span>
                   </td>
-                  <td className="px-4 py-row text-right font-mono text-cell text-secondary tabular-nums">
+                  <td className={`${cell} hidden align-top sm:table-cell`}>
+                    <ObjectIndex idx={idx} truncated={truncatedIdx} />
+                  </td>
+                  <td className={`${cell} text-right align-top font-mono text-cell text-primary tabular-nums`}>
                     {fieldCount}
                   </td>
                 </tr>
@@ -106,5 +117,14 @@ export default function ObjectsList({ objects }: { objects: LedgerObject[] }) {
         )}
       </div>
     </div>
+  );
+}
+
+function ObjectIndex({ idx, truncated }: { idx: string; truncated: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="font-mono text-cell text-primary">{truncated}</span>
+      {idx && <CopyButton text={idx} />}
+    </span>
   );
 }

@@ -1,116 +1,59 @@
-"use client";
-
 import { useMemo } from "react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
+import Section from "@/components/shared/Section";
 import { useLiveData } from "@/hooks/useLiveData";
-import { cn } from "@/lib/utils";
+import { fadeVariants, SPRING } from "@/lib/motion";
 import LedgerCard from "./LedgerCard";
 
-const MAX_DISPLAY_LEDGERS_VERTICAL = 5;
-const MAX_DISPLAY_LEDGERS_HORIZONTAL = 20;
-
-/* ------------------------------------------------------------------ */
-/*  Main Feed                                                          */
-/* ------------------------------------------------------------------ */
-
-interface LiveLedgerFeedProps {
-  horizontal?: boolean;
-}
+const MAX_LEDGERS = 20;
 
 /**
- * Live ledger ticker for the Network Overview / homepage. Ledgers
- * stream in via the `useLiveData` WS singleton and render as a
- * horizontal (or vertical) row of LedgerCards. Each card is a
- * fixed-height tile with a proportional tx-family bar — see
- * `LedgerCard` for the why behind dropping the per-tx dot grid.
+ * Live ledger strip for the network page: the newest validated ledgers
+ * from `useLiveData`, newest first, in a row that scrolls sideways,
+ * columns split by hairlines. See `LedgerCard` for one column.
  */
-export default function LiveLedgerFeed({ horizontal = false }: LiveLedgerFeedProps) {
+export default function LiveLedgerFeed({ className }: { className?: string }) {
   const { ledgerHistory, connected } = useLiveData();
-
-  // Newest-first, capped
-  const maxLedgers = horizontal ? MAX_DISPLAY_LEDGERS_HORIZONTAL : MAX_DISPLAY_LEDGERS_VERTICAL;
-  const ledgers = useMemo(
-    () => [...ledgerHistory].reverse().slice(0, maxLedgers),
-    [ledgerHistory, maxLedgers],
-  );
+  const ledgers = useMemo(() => [...ledgerHistory].reverse().slice(0, MAX_LEDGERS), [ledgerHistory]);
 
   return (
-    <div className="flex flex-col gap-0 overflow-hidden rounded-2xl">
-      {/* Header */}
-      <div className="flex items-center justify-between px-1 pb-3">
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className={cn(
-              "h-1.5 w-1.5 rounded-full",
-              connected ? "bg-success animate-pulse" : "bg-error",
-            )}
-          />
-          <span className="font-display text-label font-medium uppercase tracking-header text-muted">
-            Latest Ledgers
-          </span>
-        </div>
-        <Link
-          href="/ledger/validated"
-          className="rounded-lg font-display text-label font-bold uppercase tracking-header text-brand transition-colors hover:text-brand-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >
-          View All
-        </Link>
-      </div>
-
-      {/* Cards. aria-live="polite" so screen-reader users get a hint
-           when ledgers tick over without spamming on every update; the
-           body itself is mostly numbers/links so atomic=false keeps
-           announcements scoped to changed regions. */}
+    <Section
+      title="Latest ledgers"
+      status={ledgers.length > 0 ? null : connected ? "Waiting for ledger closes…" : "Connecting to the live feed…"}
+      className={className}
+    >
+      {/* aria-live="polite" hints at each new ledger without reading the
+           whole strip again; atomic=false scopes it to what changed. The
+           1-cell inset keeps focus rings clear of the scroll clip. */}
       <div
         aria-live="polite"
         aria-atomic="false"
-        className={cn(
-          horizontal
-            ? "scrollbar-brand flex flex-row gap-3 overflow-x-scroll pb-2"
-            : "flex flex-col gap-2.5",
-        )}
+        className="scrollbar-brand -m-1 flex overflow-x-auto p-1 pb-3"
       >
-        {ledgers.length === 0 ? (
-          <div
-            className={cn(
-              "rounded-xl border border-elevated bg-surface px-4 py-8 text-center shadow-card",
-              horizontal && "w-full shrink-0",
-            )}
-          >
-            <p className="font-mono text-body text-muted">
-              Waiting for ledger closes...
-            </p>
-          </div>
-        ) : (
-          <AnimatePresence initial={false} mode="popLayout">
-            {ledgers.map((l) => (
-              <motion.div
-                key={l.ledger_index}
-                initial={
-                  horizontal
-                    ? { opacity: 0, scale: 0.95, filter: "blur(4px)" }
-                    : { opacity: 0, scale: 0.97, filter: "blur(4px)" }
-                }
-                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-                style={{ willChange: "transform, opacity, filter" }}
-              >
-                <LedgerCard
-                  ledgerIndex={l.ledger_index}
-                  ledgerTime={l.ledger_time}
-                  txnCount={l.txn_count}
-                  txSummaries={l.txSummaries}
-                  totalFees={l.totalFees}
-                  horizontal={horizontal}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        )}
+        <AnimatePresence initial={false} mode="popLayout">
+          {ledgers.map((l) => (
+            <motion.div
+              key={l.ledger_index}
+              // New ledgers fade in at full size: no scale or blur on
+              // text.
+              variants={fadeVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={SPRING.smooth}
+              className="shrink-0 border-l border-line px-4 first:border-l-0 first:pl-0"
+            >
+              <LedgerCard
+                ledgerIndex={l.ledger_index}
+                ledgerTime={l.ledger_time}
+                txnCount={l.txn_count}
+                txSummaries={l.txSummaries}
+                totalFees={l.totalFees}
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
-    </div>
+    </Section>
   );
 }

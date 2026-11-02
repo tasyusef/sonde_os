@@ -191,7 +191,7 @@ describe("muted text", () => {
 
 describe("brand hex", () => {
   /* The copies in lib/brand-colors (theme-color, manifest, icons). */
-  it("matches the page in each theme and the yellow", () => {
+  it("matches the page in each theme and the coral", () => {
     expect(oklchToHex(darkTheme["--color-black"])).toBe(GROUND.dark);
     expect(oklchToHex(lightTheme["--color-black"])).toBe(GROUND.light);
     expect(oklchToHex(darkTheme["--color-brand"])).toBe(BRAND);

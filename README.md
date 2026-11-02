@@ -19,7 +19,7 @@ Look up any account, transaction, ledger, token or NFT and understand it. No sig
 - **$0 to run.** Both fit Cloudflare's free plan.
 
 ## Design
-A pixel design system: everything is set in bitmap faces on whole pixels (PARC Pixel for Sonde's own labels, Departure Mono for data and text), with square shapes, hard 1px edges and dither fills instead of boxes. Yellow marks the primary action and where you are. Each transaction family has its own OKLCH hue, checked for contrast in both themes. Icons, the logo and the globe are drawn on the same pixel grid. Dark and light themes; motion is springs and stops under reduced motion. Tokens live in `src/globals.css`; `/designsystem` shows them.
+A pixel design system: everything is set in bitmap faces on whole pixels (PARC Pixel for Sonde's own labels, Departure Mono for data and text), with square shapes, hard 1px edges and dither fills instead of boxes. Coral, the colour of the first Sonde, marks the primary action and where you are. Each transaction family has its own OKLCH hue, checked for contrast in both themes. Icons, the logo and the globe are drawn on the same pixel grid. Dark and light themes; motion is springs and stops under reduced motion. Tokens live in `src/globals.css`; `/designsystem` shows them.
 
 ## Stack
 React 19 · React Router 8 (framework mode, static SPA) on Vite · TypeScript · Tailwind CSS v4 · Motion · SWR · Zod. The relay is Rust (`workers-rs`). Tests are Vitest, plus the relay's cargo tests.

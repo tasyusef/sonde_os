@@ -14,11 +14,15 @@
      One per tx family and per status, the same in both themes. Written in
      OKLCH so lightness and chroma mean the same for every hue. Each type
      hue sits at lightness 0.76 and 92% of the chroma sRGB holds there, so
-     none outweighs another (offer sits at 0.8: amber only reads as amber
-     when light); account and other are near-greys. No family shares a
-     status's hue: trust is teal and check orchid, so neither reads as
-     success or error. The statuses keep their own tuning; warning is
-     amber at offer's lightness, apart from the accent's yellow.
+     none outweighs another (offer and escrow sit at 0.8: amber and lime
+     only read as themselves when light, and the lift keeps lime off
+     success's green); account and other are near-greys. No family shares
+     a status's hue or the accent's: trust is teal and check orchid, so
+     neither reads as success or error, and escrow is lime, off the coral.
+     The statuses keep their own tuning. Error is rose: a red light enough
+     to read on the dark ground turns salmon, which is the coral, so it
+     leans toward pink, halfway to amm. Warning is amber at offer's
+     lightness.
      Tags take them through `tag-*`; text and marks in a hue use the
      theme's -fg, status and -mark tokens below. */
   --color-tx-payment: oklch(0.76 0.122 244);
@@ -26,12 +30,12 @@
   --color-tx-nft: oklch(0.76 0.126 294);
   --color-tx-trust: oklch(0.76 0.119 195);
   --color-tx-amm: oklch(0.76 0.158 350);
-  --color-tx-escrow: oklch(0.76 0.153 56);
+  --color-tx-escrow: oklch(0.8 0.168 116);
   --color-tx-account: oklch(0.76 0.035 257);
   --color-tx-check: oklch(0.76 0.21 325);
   --color-tx-other: oklch(0.76 0.015 262);
   --color-status-success: oklch(0.739 0.115 155);
-  --color-status-error: oklch(0.731 0.167 34);
+  --color-status-error: oklch(0.71 0.172 12);
   --color-status-warning: oklch(0.8 0.149 70);
 
   /* ——— Font Families ———
@@ -108,15 +112,15 @@
   --color-rim: oklch(0.966 0.005 107 / 0.14);
   --color-rim-strong: oklch(0.966 0.005 107 / 0.26);
 
-  /* ——— Accent (Yellow) ———
-     Means two things: the primary action and where you are. One yellow in
-     both themes: accent is the fill, brand the accent as type and marks.
-     Yellow text on paper is 1.3:1 (and any yellow dark enough to read
-     there is olive), so on the light ground what must be read takes the
-     fill instead: links when reached for. */
-  --color-accent: oklch(0.871 0.185 100);
+  /* ——— Accent (Coral) ———
+     Sonde's coral, #E8856C. Means two things: the primary action and
+     where you are. One coral in both themes: accent is the fill, brand
+     the accent as type and marks. Coral text on paper is 2.4:1 (7.2:1 on
+     the dark page), so on the light ground what must be read takes the
+     fill instead: links when reached for. Ink on the fill is 7.2:1. */
+  --color-accent: oklch(0.718 0.127 35.1);
   --color-on-accent: oklch(0.176 0.006 107);
-  --color-brand: oklch(0.871 0.185 100);
+  --color-brand: oklch(0.718 0.127 35.1);
 
   /* ——— Text in a hue ———
      Statuses (+/− amounts, states) and the tx families as plain text.
@@ -124,7 +128,7 @@
      surface, elevated and a hovered row in both themes, the statuses on
      their own 0-10% tints too (src/theme-contrast.test.ts). */
   --color-success: oklch(0.739 0.115 155);
-  --color-error: oklch(0.731 0.167 34);
+  --color-error: oklch(0.71 0.172 12);
   --color-warning: oklch(0.8 0.149 70);
   --color-on-error: oklch(0.176 0.006 107);
   --color-tx-payment-fg: oklch(0.76 0.122 244);
@@ -132,7 +136,7 @@
   --color-tx-nft-fg: oklch(0.76 0.126 294);
   --color-tx-trust-fg: oklch(0.76 0.119 195);
   --color-tx-amm-fg: oklch(0.76 0.158 350);
-  --color-tx-escrow-fg: oklch(0.76 0.153 56);
+  --color-tx-escrow-fg: oklch(0.8 0.168 116);
   --color-tx-account-fg: oklch(0.76 0.035 257);
   --color-tx-check-fg: oklch(0.76 0.21 325);
   --color-tx-other-fg: oklch(0.76 0.015 262);
@@ -143,13 +147,13 @@
      stay lighter and brighter than the text tokens. On the dark ground
      each is its hue. Tx marks go through getTypeColor(). */
   --color-success-mark: oklch(0.739 0.115 155);
-  --color-error-mark: oklch(0.731 0.167 34);
+  --color-error-mark: oklch(0.71 0.172 12);
   --color-tx-payment-mark: oklch(0.76 0.122 244);
   --color-tx-offer-mark: oklch(0.8 0.152 82);
   --color-tx-nft-mark: oklch(0.76 0.126 294);
   --color-tx-trust-mark: oklch(0.76 0.119 195);
   --color-tx-amm-mark: oklch(0.76 0.158 350);
-  --color-tx-escrow-mark: oklch(0.76 0.153 56);
+  --color-tx-escrow-mark: oklch(0.8 0.168 116);
   --color-tx-account-mark: oklch(0.76 0.035 257);
   --color-tx-check-mark: oklch(0.76 0.21 325);
   --color-tx-other-mark: oklch(0.76 0.015 262);
@@ -332,8 +336,8 @@ body {
 
 /* ——— Links ———
    A link is underlined in its own text colour and turns the accent when
-   reached for (on paper, where yellow text can't be read, it takes the
-   accent fill), so yellow at rest stays for the primary action and where
+   reached for (on paper, where coral text can't be read, it takes the
+   accent fill), so coral at rest stays for the primary action and where
    you are. 4px clears
    Departure's 3px descenders; skip-ink off keeps the line one solid run.
    `link-quiet` (nav and footer lists) shows the underline only when
@@ -405,7 +409,7 @@ html.light {
   /* Text in a hue drops to lightness 0.45, the most that still reads on
      elevated with a tint, at 90% of the chroma sRGB holds there. */
   --color-success: oklch(0.45 0.1 155);
-  --color-error: oklch(0.45 0.146 34);
+  --color-error: oklch(0.45 0.162 12);
   --color-warning: oklch(0.45 0.088 70);
   --color-on-error: oklch(0.966 0.005 107);
   --color-tx-payment-fg: oklch(0.45 0.1 244);
@@ -413,7 +417,7 @@ html.light {
   --color-tx-nft-fg: oklch(0.45 0.224 294);
   --color-tx-trust-fg: oklch(0.45 0.069 195);
   --color-tx-amm-fg: oklch(0.45 0.169 350);
-  --color-tx-escrow-fg: oklch(0.45 0.099 56);
+  --color-tx-escrow-fg: oklch(0.45 0.093 116);
   --color-tx-account-fg: oklch(0.45 0.035 257);
   --color-tx-check-fg: oklch(0.45 0.19 325);
   --color-tx-other-fg: oklch(0.45 0.015 262);
@@ -421,13 +425,13 @@ html.light {
      on paper, at 92% chroma, so none outweighs another (up and down
      included). */
   --color-success-mark: oklch(0.615 0.14 155);
-  --color-error-mark: oklch(0.615 0.204 34);
+  --color-error-mark: oklch(0.615 0.226 12);
   --color-tx-payment-mark: oklch(0.615 0.14 244);
   --color-tx-offer-mark: oklch(0.615 0.117 82);
   --color-tx-nft-mark: oklch(0.615 0.214 294);
   --color-tx-trust-mark: oklch(0.615 0.097 195);
   --color-tx-amm-mark: oklch(0.615 0.236 350);
-  --color-tx-escrow-mark: oklch(0.615 0.139 56);
+  --color-tx-escrow-mark: oklch(0.615 0.129 116);
   --color-tx-account-mark: oklch(0.615 0.035 257);
   --color-tx-check-mark: oklch(0.615 0.265 325);
   --color-tx-other-mark: oklch(0.615 0.015 262);
@@ -439,14 +443,14 @@ html.light {
 @media (color-gamut: p3) {
   html.light {
     --color-success: oklch(0.45 0.139 155);
-    --color-error: oklch(0.45 0.164 34);
+    --color-error: oklch(0.45 0.183 12);
     --color-warning: oklch(0.45 0.101 70);
     --color-tx-payment-fg: oklch(0.45 0.13 244);
     --color-tx-offer-fg: oklch(0.45 0.096 82);
     --color-tx-nft-fg: oklch(0.45 0.231 294);
     --color-tx-trust-fg: oklch(0.45 0.093 195);
     --color-tx-amm-fg: oklch(0.45 0.189 350);
-    --color-tx-escrow-fg: oklch(0.45 0.113 56);
+    --color-tx-escrow-fg: oklch(0.45 0.108 116);
     --color-tx-check-fg: oklch(0.45 0.206 325);
   }
 }

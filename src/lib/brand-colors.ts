@@ -5,5 +5,5 @@
 /** The page (`--color-black`) in each theme. */
 export const GROUND = { dark: "#11110E", light: "#F4F4F0" } as const;
 
-/** The yellow (`--color-brand`), the same in both themes. */
-export const BRAND = "#F2D600";
+/** The coral (`--color-brand`), the same in both themes. */
+export const BRAND = "#E8856C";

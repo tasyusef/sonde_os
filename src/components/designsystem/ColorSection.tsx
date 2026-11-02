@@ -68,7 +68,7 @@ export default function ColorSection() {
 
         {/* Brand */}
         <div>
-          <SubsectionLabel>Accent (Yellow)</SubsectionLabel>
+          <SubsectionLabel>Accent (Coral)</SubsectionLabel>
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
             {brandColors.map((c) => (
               <SwatchCard key={c.name} name={c.name} variable={c.variable} />

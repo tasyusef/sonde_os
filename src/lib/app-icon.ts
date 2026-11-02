@@ -1,4 +1,4 @@
-// The app icon: the mark in the yellow on a square of the dark page,
+// The app icon: the mark in the coral on a square of the dark page,
 // drawn cell by cell so every size is exact (`scripts/brand.ts`).
 import { BRAND, GROUND } from "./brand-colors";
 import { MARK, MARK_SMALL } from "./logo";

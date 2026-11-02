@@ -46,7 +46,7 @@ describe("drawIcon", () => {
   const pixel = (px: Uint8Array, size: number, x: number, y: number) =>
     [...px.subarray((y * size + x) * 4, (y * size + x) * 4 + 4)];
 
-  it.each([32, 192])("draws the mark's cells in the yellow on the dark page (%ipx)", (size) => {
+  it.each([32, 192])("draws the mark's cells in the coral on the dark page (%ipx)", (size) => {
     const px = drawIcon(size);
     const { mark, cell, at } = iconLayout(size);
     for (let r = 0; r < mark.length; r++) {
